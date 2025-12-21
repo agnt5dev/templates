@@ -1,0 +1,23 @@
+{
+  "version": "1",
+  "templates": {
+    "quickstart": {
+      "description": "Minimal template with basic functions and workflow",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    },
+    "weather-agent": {
+      "description": "Weather agent with OpenWeatherMap integration",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    }
+  }
+}

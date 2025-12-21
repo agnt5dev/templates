@@ -1,0 +1,12 @@
+name: weather-agent
+language: python
+language_version: "3.12"
+environment: development
+deploy:
+    dockerfile: ./Dockerfile
+    ignore_file: .dockerignore
+    registry:
+        url: docker.io
+    resources:
+        memory: 256Mi
+        cpu: 250m

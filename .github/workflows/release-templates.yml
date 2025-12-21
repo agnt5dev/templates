@@ -1,0 +1,203 @@
+name: Release Templates
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'python/**'
+      - 'typescript/**'
+      - 'templates.json'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even if no changes'
+        required: false
+        default: 'false'
+
+env:
+  R2_BUCKET: agnt5-templates
+  R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build template tarballs
+        id: build
+        run: |
+          mkdir -p dist
+
+          # Read templates.json and build tarballs
+          python3 << 'EOF'
+          import json
+          import os
+          import tarfile
+          from pathlib import Path
+
+          with open('templates.json') as f:
+              manifest = json.load(f)
+
+          dist_dir = Path('dist')
+          built_templates = []
+
+          for template_name, template_info in manifest['templates'].items():
+              for lang, lang_info in template_info['languages'].items():
+                  version = lang_info['latest']
+                  template_dir = Path(lang) / template_name
+
+                  if not template_dir.exists():
+                      print(f"Warning: {template_dir} does not exist, skipping")
+                      continue
+
+                  # Create tarball: {template}-{lang}-{version}.tar.gz
+                  tarball_name = f"{template_name}-{lang}-{version}.tar.gz"
+                  tarball_path = dist_dir / tarball_name
+
+                  print(f"Building {tarball_name} from {template_dir}")
+
+                  with tarfile.open(tarball_path, 'w:gz') as tar:
+                      # Add files, excluding .venv, __pycache__, .git, etc.
+                      for item in template_dir.rglob('*'):
+                          rel_path = item.relative_to(template_dir)
+
+                          # Skip excluded patterns
+                          skip_patterns = ['.venv', '__pycache__', '.git', '.agnt5',
+                                          '*.pyc', '.env', 'uv.lock', '.ruff_cache']
+                          should_skip = False
+                          for pattern in skip_patterns:
+                              if pattern.startswith('*'):
+                                  if str(rel_path).endswith(pattern[1:]):
+                                      should_skip = True
+                                      break
+                              elif pattern in str(rel_path).split(os.sep):
+                                  should_skip = True
+                                  break
+
+                          if should_skip:
+                              continue
+
+                          if item.is_file():
+                              # Add file with path relative to template dir
+                              tar.add(item, arcname=str(rel_path))
+
+                  built_templates.append({
+                      'name': template_name,
+                      'language': lang,
+                      'version': version,
+                      'tarball': tarball_name
+                  })
+                  print(f"  Created {tarball_path} ({tarball_path.stat().st_size} bytes)")
+
+          # Write build info for next steps
+          with open('dist/build-info.json', 'w') as f:
+              json.dump(built_templates, f, indent=2)
+
+          print(f"\nBuilt {len(built_templates)} templates")
+          EOF
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          # Use date-based tag: templates-YYYYMMDD-HHMMSS
+          TAG="templates-$(date -u +'%Y%m%d-%H%M%S')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated tag: $TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Templates Release ${{ steps.tag.outputs.tag }}
+          body: |
+            Automated release of AGNT5 templates.
+
+            ## Available Templates
+            See `templates.json` for the full list of templates and versions.
+
+            ## Usage
+            ```bash
+            agnt5 create --template python/weather-agent
+            ```
+          files: |
+            dist/*.tar.gz
+            templates.json
+          draft: false
+          prerelease: false
+
+      - name: Configure AWS CLI for R2
+        if: env.R2_ENDPOINT != ''
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws configure set default.region auto
+
+      - name: Sync to Cloudflare R2
+        if: env.R2_ENDPOINT != ''
+        run: |
+          # Upload templates.json
+          aws s3 cp templates.json s3://$R2_BUCKET/templates/templates.json \
+            --endpoint-url $R2_ENDPOINT \
+            --content-type application/json
+
+          # Upload each tarball to organized structure
+          python3 << 'EOF'
+          import json
+          import subprocess
+          import os
+
+          r2_endpoint = os.environ['R2_ENDPOINT']
+          r2_bucket = os.environ['R2_BUCKET']
+
+          with open('dist/build-info.json') as f:
+              templates = json.load(f)
+
+          for t in templates:
+              src = f"dist/{t['tarball']}"
+              # Upload to: templates/{template}/{language}/{version}.tar.gz
+              dest = f"s3://{r2_bucket}/templates/{t['name']}/{t['language']}/{t['version']}.tar.gz"
+
+              print(f"Uploading {src} to {dest}")
+              subprocess.run([
+                  'aws', 's3', 'cp', src, dest,
+                  '--endpoint-url', r2_endpoint,
+                  '--content-type', 'application/gzip'
+              ], check=True)
+
+              # Also upload as latest.tar.gz
+              latest_dest = f"s3://{r2_bucket}/templates/{t['name']}/{t['language']}/latest.tar.gz"
+              print(f"Uploading {src} to {latest_dest}")
+              subprocess.run([
+                  'aws', 's3', 'cp', src, latest_dest,
+                  '--endpoint-url', r2_endpoint,
+                  '--content-type', 'application/gzip'
+              ], check=True)
+
+          print(f"\nSynced {len(templates)} templates to R2")
+          EOF
+
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Built Templates" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat dist/build-info.json | python3 -c "
+          import json, sys
+          templates = json.load(sys.stdin)
+          for t in templates:
+              print(f\"- {t['name']} ({t['language']}) - {t['version']}\")
+          " >> $GITHUB_STEP_SUMMARY
