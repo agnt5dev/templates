@@ -18,6 +18,51 @@
           "versions": ["v0.1.0"]
         }
       }
+    },
+    "code_reviewer": {
+      "description": "AI-powered code review agent with GitHub and Jira integration",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    },
+    "coding_agent": {
+      "description": "Autonomous test-driven development agent with E2B sandbox",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    },
+    "customer_service": {
+      "description": "Multi-agent travel booking assistant with flight and hotel search",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    },
+    "deep_research": {
+      "description": "Autonomous research agent with Wikipedia sourcing and quality assessment",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
+    },
+    "tutor_agent": {
+      "description": "Multi-subject educational assistant with specialized tutor handoffs",
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
     }
   }
 }
