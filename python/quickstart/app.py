@@ -2,6 +2,7 @@
 """AGNT5 Quickstart Python."""
 
 import asyncio
+from enum import auto
 import os
 import sys
 import logging
@@ -37,10 +38,11 @@ async def main():
             service_version="1.0.0",
             coordinator_endpoint=coordinator_endpoint,
             runtime="standalone",
-            # Hybrid registration: workflows/entities/agents explicit, tools auto-included
-            workflows=[
-                research,
-            ],
+            # # Hybrid registration: workflows/entities/agents explicit, tools auto-included
+            # workflows=[
+            #     research,
+            # ],
+            auto_register=True,
         )
 
         # Components are explicitly registered, tools are auto-included from agents

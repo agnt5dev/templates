@@ -1,0 +1,6 @@
+project: nF5DMhV94WfX6a5vWLxNMX
+name: coding-agent-agnt5
+language: python
+language_version: "3.12"
+environment: development
+

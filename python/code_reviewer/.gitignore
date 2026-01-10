@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+.venv-local/
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+core/local-server/cmd/__debug_*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+coverage.txt
+coverage.html
+
+# Test coverage
+coverage.xml
+htmlcov/
+.coverage
+*.cover
+.pytest_cache/
+
+# Go build cache
+.cache/
+
+# Rust
+target/
+Cargo.lock
+# Note: Cargo.lock should be committed for applications but not for libraries
+# For now, we'll include it since SDK-Core may be used as both
+
+# Ignore data directory
+**/data/**
+
+**/.env
+**/.agnt5/**
+
+protos/gen/
+prompts-*.md
+todo.md
+plan.md
+platform/bin/*
+platform/tmp/*
+platform/.gocache/*
+**/.gocache/*
+# **/*.toml
+**/*.lock
+mise.toml

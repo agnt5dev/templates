@@ -1,0 +1,6 @@
+project: nF5DMhV94WfX6a5vWLxNMX
+name: agnt5-deep-research
+language: python
+language_version: "3.14"
+environment: development
+variables: {}
