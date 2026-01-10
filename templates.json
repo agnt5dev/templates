@@ -2,7 +2,10 @@
   "version": "1",
   "templates": {
     "quickstart": {
+      "title": "Quickstart",
       "description": "Minimal template with basic functions and workflow",
+      "category": "Getting Started",
+      "capabilities": ["workflows", "functions"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -11,7 +14,10 @@
       }
     },
     "weather-agent": {
+      "title": "Weather Agent",
       "description": "Weather agent with OpenWeatherMap integration",
+      "category": "Customer Support / Chatbots",
+      "capabilities": ["agents", "integrations", "tooling"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -20,7 +26,10 @@
       }
     },
     "code_reviewer": {
+      "title": "Code Reviewer",
       "description": "AI-powered code review agent with GitHub and Jira integration",
+      "category": "Coding & Dev Automation",
+      "capabilities": ["agents", "integrations", "tooling", "evals"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -29,7 +38,10 @@
       }
     },
     "coding_agent": {
+      "title": "Coding Agent",
       "description": "Autonomous test-driven development agent with E2B sandbox",
+      "category": "Coding & Dev Automation",
+      "capabilities": ["agents", "tooling", "workflows", "integrations"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -38,7 +50,10 @@
       }
     },
     "customer_service": {
+      "title": "Customer Service Assistant",
       "description": "Multi-agent travel booking assistant with flight and hotel search",
+      "category": "Customer Support / Chatbots",
+      "capabilities": ["agents", "memory", "workflows", "integrations"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -47,7 +62,10 @@
       }
     },
     "deep_research": {
+      "title": "Deep Research Agent",
       "description": "Autonomous research agent with Wikipedia sourcing and quality assessment",
+      "category": "Research & Analysis",
+      "capabilities": ["agents", "memory", "tooling", "long-running", "workflows"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
@@ -56,7 +74,10 @@
       }
     },
     "tutor_agent": {
+      "title": "Tutor Agent",
       "description": "Multi-subject educational assistant with specialized tutor handoffs",
+      "category": "Customer Support / Chatbots",
+      "capabilities": ["agents", "memory", "workflows"],
       "languages": {
         "python": {
           "latest": "v0.1.0",
