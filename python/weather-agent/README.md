@@ -1,233 +1,455 @@
-# Weather Agent - Simple AGNT5 Template
+# Weather Agent
 
-A minimal weather agent built with AGNT5 that demonstrates core concepts: one function to fetch weather data and one workflow to orchestrate it.
+> Build intelligent weather assistants that answer natural language queries using real-time data.
 
-## 🌟 What You'll Learn
+## Quick Start
 
-This template showcases:
+```bash
+agnt5 create --template python/weather-agent
+cd weather-agent
+agnt5 dev up
+```
 
-- **Functions** – Reusable operations with automatic retry logic
-- **Workflows** – Simple orchestration to call functions
-- **Models** – Type-safe data structures with Pydantic
-- **Worker** – How to register and run an AGNT5 worker
+## What You Can Build
 
-## 🚀 Quick Start
+- **Conversational Weather Bots**: Chat-based agents that understand "What's the weather like in Tokyo?" and respond naturally
+- **Weather Data Pipelines**: Automated workflows that fetch, process, and route weather information across systems
+- **Location-Aware Apps**: Services that provide weather context for travel planning, event scheduling, or logistics
+
+## Installation
 
 ### Prerequisites
 
 - Python 3.12+
-- AGNT5 Platform installed (`curl -LsSf https://agnt5.com/cli.sh | bash`)
+- AGNT5 SDK
+- No API keys required (uses free Open-Meteo API)
 
-### Installation
-
-```bash
-# 1. Navigate to the weather-agent directory
-cd blueprints/weather-agent
-
-# 2. Install dependencies
-uv sync  # or: pip install -e .
-```
-
-### Running the Agent
+### Setup
 
 ```bash
+# Clone or create from template
+agnt5 create --template python/weather-agent
+cd weather-agent
+
+# Install dependencies
+uv sync
+
+# Start the platform and worker
 agnt5 dev up
 ```
 
-This will start the AGNT5 platform and the weather agent automatically.
+The worker auto-starts with the platform. Check startup logs for the assigned port.
 
-## 🧪 Testing Workflows
+## Usage
 
-To test the workflow, run:
+### Via Workflow Client
 
-```bash
-python -m test
-```
-
-This will execute the workflow tests directly.
-## 🧪 Running Tests
-
-
-To run tests, make sure you are in the `weather-agent` directory and that dependencies are installed:
-
-```bash
-uv sync  # or pip install -e .
-python -m test
-```
-```
-
-## 📁 Project Structure
-
-```
-weather-agent/
-├── src/
-│   └── weather_agent/
-│       ├── __init__.py           # Package exports
-│       ├── models.py             # WeatherData model
-│       ├── functions.py          # get_weather_data function
-│       ├── workflows.py          # get_weather workflow
-│       └── config.py             # Configuration
-├── app.py                        # Worker entry point
-├── pyproject.toml                # Python dependencies
-└── README.md                     # This file
-```
-
-## 🔧 Core Components
-
-### 1. Model (`models.py`)
-
-Type-safe data structure:
+Call the workflow programmatically:
 
 ```python
-class WeatherData(BaseModel):
-    location: str
-    latitude: float
-    longitude: float
-    temperature_c: float
-    temperature_f: float
-    humidity: int
-    wind_kph: float
-    country: Optional[str] = None
-    region: Optional[str] = None
+import asyncio
+from weather_agent.workflows import get_weather
+from agnt5 import with_entity_context
+
+@with_entity_context
+async def main():
+    result = await get_weather(location="London")
+
+    print(f"Location: {result.location}")
+    print(f"Temperature: {result.temperature_c}°C ({result.temperature_f}°F)")
+    print(f"Humidity: {result.humidity}%")
+    print(f"Wind Speed: {result.wind_kph} km/h")
+    print(f"Conditions: {result.condition}")
+
+asyncio.run(main())
 ```
 
-### 2. Function (`functions.py`)
+### Example Output
 
-Fetches weather data from the Open-Meteo API:
+The `get_weather` workflow returns structured data:
 
 ```python
-@function(
-    name="get_weather_data",
-    retries=RetryPolicy(max_attempts=3),
-    backoff=BackoffPolicy(type=BackoffType.EXPONENTIAL),
+WeatherData(
+    location="London, United Kingdom",
+    temperature_c=15.2,
+    temperature_f=59.4,
+    humidity=65,
+    wind_kph=12.5,
+    wind_mph=7.8,
+    condition="Partly cloudy",
+    feels_like_c=14.1,
+    feels_like_f=57.4,
+    uv_index=3,
+    visibility_km=10.0
 )
-async def get_weather_data(ctx: FunctionContext, location: str) -> WeatherData:
-    """Fetch weather data for a location."""
-    # 1. Geocodes location to get coordinates
-    # 2. Fetches weather using coordinates
-    # Returns WeatherData model
 ```
 
-### 3. Workflow (`workflows.py`)
+The `get_weather_interactive` workflow returns natural language:
+```
+"The weather in London is currently 15°C (59°F) with partly cloudy skies.
+Humidity is at 65% with light winds at 12 km/h. It feels like 14°C."
+```
 
-Orchestrates the function call:
+## Configuration
 
+### Environment Variables
+
+No API keys required! This template uses the free [Open-Meteo API](https://open-meteo.com).
+
+### Workflow Parameters
+
+```python
+# Simple workflow - returns structured data
+get_weather(
+    location: str  # City name, coordinates, or postal code
+) -> WeatherData
+
+# Interactive workflow - returns natural language
+get_weather_interactive(
+    message: str  # Natural language query
+) -> str
+```
+
+### Customization
+
+Edit `src/weather_agent/config.py`:
+
+```python
+SERVICE_NAME = "weather-agent"
+SERVICE_VERSION = "1.0.0"
+WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
+GEOCODING_API_URL = "https://geocoding-api.open-meteo.com/v1/search"
+```
+
+Edit `src/weather_agent/agents.py`:
+
+```python
+weather_agent = Agent(
+    name="weather-agent",
+    model="openai/gpt-4o-mini",       # Change to any supported model
+    instructions="...",                # Customize agent behavior
+    temperature=0.1,                   # Adjust creativity (0.0-1.0)
+    tools=[get_weather_data_tool],
+)
+```
+
+<details>
+<summary>Architecture</summary>
+
+### Component Overview
+
+The weather agent demonstrates a clean separation between agent-based chat and function-based workflows.
+
+#### 1. Agent (`agents.py`)
+
+Conversational AI that handles natural language:
+
+```python
+weather_agent = Agent(
+    name="weather-agent",
+    model="openai/gpt-4o-mini",
+    instructions="Get weather data for a location...",
+    tools=[get_weather_data_tool],
+    temperature=0.1,
+)
+```
+
+**Capabilities:**
+- Understands location queries in natural language
+- Maintains conversation context across messages
+- Returns formatted, human-readable responses
+- Automatically calls tools when needed
+
+#### 2. Tools (`tools.py`)
+
+Bridge between the agent and weather data:
+
+```python
+@tool(auto_schema=True)
+async def get_weather_data_tool(ctx: Context, location: str) -> WeatherData:
+    """Fetch weather data for a location."""
+    fun_ctx = FunctionContext(run_id=ctx.run_id)
+    return await get_weather_data(fun_ctx, location)
+```
+
+**Purpose:**
+- Provides agent-callable interface to functions
+- Handles context translation between agents and functions
+- Returns structured data for agent interpretation
+
+#### 3. Functions (`functions.py`)
+
+Core weather fetching logic:
+
+```python
+@function(name="get_weather_data")
+async def get_weather_data(ctx: FunctionContext, location: str) -> WeatherData:
+    """Fetch weather data with built-in retry logic.
+
+    Steps:
+    1. Geocode location → coordinates
+    2. Fetch weather data for coordinates
+    3. Parse and structure response
+    """
+```
+
+**Features:**
+- Built-in retry mechanism via AGNT5
+- Geocoding with Open-Meteo API
+- Real-time weather data fetching
+- Structured output via Pydantic models
+
+#### 4. Workflows (`workflows.py`)
+
+Two workflows for different use cases:
+
+**Simple Workflow** - Direct function call:
 ```python
 @workflow(name="get_weather")
 async def get_weather(ctx: WorkflowContext, location: str) -> WeatherData:
-    """Fetch weather data for a location."""
+    """Returns structured weather data."""
     weather = await ctx.task(get_weather_data, location)
     return weather
 ```
 
-### 4. Worker (`app.py`)
+**Interactive Workflow** - Chat-enabled:
+```python
+@workflow(name="get_weather_interactive", chat=True)
+async def get_weather_interactive(ctx: WorkflowContext, message: str) -> str:
+    """Returns natural language response with conversation history."""
+    result = await weather_agent.run_sync(message, context=ctx)
+    return result.output
+```
 
-Registers components with AGNT5:
+The `chat=True` parameter:
+- Exposes workflow as a chat endpoint
+- Maintains conversation history in workflow entity
+- Enables multi-turn conversations
+
+#### 5. Models (`models.py`)
+
+Type-safe data structures:
+
+```python
+class WeatherData(BaseModel):
+    location: str
+    temperature_c: float
+    temperature_f: float
+    humidity: int
+    wind_kph: float
+    wind_mph: float
+    condition: str
+    feels_like_c: float
+    feels_like_f: float
+    uv_index: int
+    visibility_km: float
+```
+
+**Benefits:**
+- Runtime validation
+- Type hints for IDEs
+- Automatic JSON serialization
+- Clear data contracts
+
+#### 6. Worker (`app.py`)
+
+Registers all components with AGNT5:
 
 ```python
 worker = Worker(
     service_name="weather-agent",
-    service_version="1.0.0",
-    functions=[get_weather_data],
-    workflows=[get_weather],
+    auto_register=True,  # Discovers all @function, @workflow, @tool, Agent
+    metadata={"description": "Simple weather agent..."},
 )
 await worker.run()
 ```
 
-## 💡 How It Works
+**Auto-discovery:**
+- Scans source paths in `pyproject.toml`
+- Registers all decorated components
+- No manual registration needed
 
-1. **User provides location** → Workflow receives city name
-2. **Workflow calls function** → `ctx.task(get_weather_data, location)`
-3. **Function geocodes location** → Converts city name to coordinates via Open-Meteo
-4. **Function fetches weather** → Gets current weather for coordinates
-5. **Returns weather data** → Type-safe `WeatherData` model
+### Data Flow
 
-## 🔑 Key AGNT5 Concepts
-
-### Functions
-
-Functions are reusable operations with built-in retry logic:
-
-```python
-@function(
-    name="my_function",
-    retries=RetryPolicy(max_attempts=3),
-    backoff=BackoffPolicy(type=BackoffType.EXPONENTIAL),
-)
-async def my_function(ctx: FunctionContext, arg: str) -> dict:
-    ctx.logger.info(f"Processing: {arg}")
-    return {"result": "success"}
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        User Input                           │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                ┌────────────┴────────────┐
+                │                         │
+        ┌───────▼─────────┐      ┌───────▼─────────┐
+        │  Simple Workflow │      │ Chat Workflow   │
+        │   (get_weather)  │      │  (interactive)  │
+        └───────┬──────────┘      └────────┬────────┘
+                │                          │
+                │                    ┌─────▼─────┐
+                │                    │   Agent   │
+                │                    │ (interprets│
+                │                    │  + calls   │
+                │                    │   tool)    │
+                │                    └─────┬─────┘
+                │                          │
+                │                    ┌─────▼─────┐
+                │                    │   Tool    │
+                │                    └─────┬─────┘
+                │                          │
+                └──────────┬───────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │  Function   │
+                    │ (geocode +  │
+                    │  fetch API) │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Open-Meteo  │
+                    │     API     │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ WeatherData │
+                    │   Model     │
+                    └──────┬──────┘
+                           │
+                ┌──────────┴──────────┐
+                │                     │
+        ┌───────▼─────────┐   ┌──────▼──────┐
+        │ Structured Data │   │  Natural    │
+        │  (JSON/Pydantic)│   │  Language   │
+        └─────────────────┘   └─────────────┘
 ```
 
-### Workflows
+### Workflow Comparison
 
-Workflows orchestrate functions:
+| Feature | `get_weather` | `get_weather_interactive` |
+|---------|---------------|---------------------------|
+| Input | Location string | Natural language message |
+| Output | WeatherData model | Human-readable string |
+| Use Case | Programmatic API calls | Chat interfaces |
+| Context | Stateless | Conversation history |
+| Endpoint | Standard workflow | Chat endpoint (`/api/chat/weather-agent`) |
 
-```python
-@workflow(name="my_workflow")
-async def my_workflow(ctx: WorkflowContext, input: str) -> dict:
-    result = await ctx.task(my_function, input)
-    return result
+</details>
+
+## Troubleshooting
+
+### "Location not found" error
 ```
-
-### Worker
-
-Workers register and run your components:
-
-```python
-worker = Worker(
-    service_name="my-service",
-    functions=[my_function],
-    workflows=[my_workflow],
-)
-await worker.run()
+ValueError: Could not find location: XYZ
 ```
-
-## 🎯 Extending This Template
-
-You can extend this by:
-
-1. **Adding more functions** – Create functions for data transformation, formatting, etc.
-2. **Adding more workflows** – Compose multiple functions into complex workflows
-3. **Adding state management** – Use `ctx.state.set()` and `ctx.state.get()` in workflows
-4. **Adding error handling** – Wrap function calls in try/except blocks
-
-## 🛠️ Development
-
-### Adding New Features
-
-1. Define data models in `models.py`
-2. Implement functions in `functions.py`
-3. Compose workflows in `workflows.py`
-4. Register with worker in `app.py`
-
-## 📚 Learn More
-
-- **AGNT5 Documentation**: [https://agnt5.com/docs](https://agnt5.com/docs)
-- **Open-Meteo API Docs**: [open-meteo.com](https://open-meteo.com/)
-
-## 🆘 Troubleshooting
-
-### "Location not found"
-
-The geocoding API couldn't find the city. Try:
-- Using a more common spelling
-- Adding the country (e.g., "Paris, France")
+**Solution**: The geocoding API couldn't find the location. Try:
+- Use more specific names: "Paris, France" instead of "Paris"
+- Check spelling: "New York" not "Newyork"
+- Use major cities or well-known locations
 
 ### Import errors
-
-Install dependencies:
+```
+ModuleNotFoundError: No module named 'weather_agent'
+```
+**Solution**: Ensure dependencies are installed:
 ```bash
-uv sync  # or pip install -e .
+uv sync  # or: pip install -e .
 ```
 
 ### Platform connection issues
-
-Make sure AGNT5 platform is running:
+```
+ConnectionError: Could not connect to AGNT5 Coordinator
+```
+**Solution**: Verify AGNT5 platform is running:
 ```bash
-agnt5 dev up
+agnt5 dev status  # Check status
+agnt5 dev up      # Start platform
 ```
 
----
+### API rate limiting
+Open-Meteo is free and has generous rate limits. If you hit limits:
+- Wait a few seconds before retrying
+- Consider caching results for repeated locations
+- For production, review [Open-Meteo's terms](https://open-meteo.com/en/terms)
 
-**Built with ❤️ using AGNT5** | **Simple template to get started!**
+## Customization
+
+### Add Forecast Data
+
+Modify `functions.py` to fetch 7-day forecasts:
+
+```python
+@function(name="get_weather_forecast")
+async def get_weather_forecast(ctx: FunctionContext, location: str, days: int = 7):
+    # Fetch coordinates
+    coords = await _geocode_location(location)
+
+    # Add forecast parameter to API call
+    params = {
+        "latitude": coords["latitude"],
+        "longitude": coords["longitude"],
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+        "forecast_days": days,
+    }
+    # ... implementation
+```
+
+### Add Weather Alerts
+
+Create a new tool for severe weather warnings:
+
+```python
+@tool(auto_schema=True)
+async def get_weather_alerts(ctx: Context, location: str) -> list:
+    """Fetch active weather alerts for a location."""
+    # Implementation using weather alerts API
+    pass
+```
+
+Update `agents.py`:
+```python
+weather_agent = Agent(
+    name="weather-agent",
+    tools=[get_weather_data_tool, get_weather_alerts],  # Add new tool
+)
+```
+
+### Support Multiple Locations
+
+Extend the workflow to handle batch queries:
+
+```python
+@workflow(name="get_weather_batch")
+async def get_weather_batch(ctx: WorkflowContext, locations: list[str]):
+    """Fetch weather for multiple locations in parallel."""
+    tasks = [ctx.task(get_weather_data, loc) for loc in locations]
+    results = await ctx.parallel(*tasks)
+    return results
+```
+
+### Switch Weather Provider
+
+Replace Open-Meteo with another API in `functions.py`:
+
+```python
+# Update API endpoint
+WEATHER_API_URL = "https://api.weatherapi.com/v1/current.json"
+
+# Add API key if required
+api_key = os.getenv("WEATHER_API_KEY")
+
+# Modify request and response parsing
+```
+
+### Related Templates
+
+- **code_reviewer**: AI-powered code review with security and quality analysis
+- **coding_agent_agnt5**: Autonomous TDD agent that writes and tests code
+- **text-to-sql**: Multi-step reasoning workflows with validation
+
+### Integration Ideas
+
+- **Slack/Discord Bot**: Connect `get_weather_interactive` to messaging platforms
+- **Voice Assistant**: Integrate with speech-to-text for voice queries
+- **Mobile App**: Use the REST API from iOS/Android apps
+- **IoT Devices**: Trigger workflows from smart home systems
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details

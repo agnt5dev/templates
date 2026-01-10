@@ -1,0 +1,41 @@
+[project]
+name = "agnt5-tutor-agent"
+version = "1.0.0"
+description = "Educational tutor agent service built with AGNT5"
+authors = [
+    { name = "AGNT5 Devs", email = "devs@agnt5.com" }
+]
+dependencies = [
+    "agnt5~=0.3.7",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+requires-python = ">= 3.11, < 3.14"
+keywords = ["agnt5", "education", "tutor", "ai", "agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/agnt5/agnt5"
+Documentation = "https://docs.agnt5.com"
+Repository = "https://github.com/agnt5/agnt5"
+"Bug Tracker" = "https://github.com/agnt5/agnt5/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agnt5_tutor_agent"]
