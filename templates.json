@@ -8,12 +8,12 @@
       "capabilities": ["workflows", "functions"],
       "languages": {
         "python": {
-          "latest": "v0.2.0",
-          "versions": ["v0.2.0"]
+          "latest": "v0.2.1",
+          "versions": ["v0.2.1"]
         },
         "typescript": {
-          "latest": "v0.2.0",
-          "versions": ["v0.2.0"]
+          "latest": "v0.2.1",
+          "versions": ["v0.2.1"]
         }
       }
     },
@@ -65,7 +65,7 @@
         }
       }
     },
-    "customer_service": {
+    "travel_booking_customer_service": {
       "title": "Customer Service Assistant",
       "description": "Multi-agent travel booking assistant with flight and hotel search",
       "category": "Customer Support / Chatbots",

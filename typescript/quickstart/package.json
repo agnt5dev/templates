@@ -1,6 +1,6 @@
 {
   "name": "quickstart",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "private": true,
   "description": "AGNT5 quickstart: fan-out workflow that summarizes the top Hacker News stories",
