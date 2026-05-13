@@ -1,4 +1,4 @@
-name: agnt5-quickstart
+name: quickstart
 language: python
 language_version: "3.11"
 environment: dev

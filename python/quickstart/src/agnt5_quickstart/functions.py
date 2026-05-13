@@ -1,42 +1,77 @@
-import os
+"""Steps for the Hacker News digest workflow.
+
+Each `@function` is a durable step. When called via `ctx.task(...)` inside a
+workflow, it checkpoints — a worker restart skips steps that already completed.
+"""
+from __future__ import annotations
 
 import httpx
-from agnt5 import FunctionContext, function, lm
 
+from agnt5 import Agent, FunctionContext, function
 
-class MissingAPIKeyError(Exception):
-    """Raised when a required API key is not configured."""
+HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
+HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
-    pass
+SUMMARIZER_PROMPT = """You are summarizing a Hacker News story for a busy
+engineer. Given a title and (if available) a URL, write 1-2 plain sentences
+covering what the story is and why it might matter. No marketing language."""
 
-
-@function
-async def fetch_article(ctx: FunctionContext, url: str) -> str:
-    """Fetch article content from a URL."""
-    ctx.logger.info(f"Fetching {url}...")
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        return response.text
-
-
-@function
-async def summarize(ctx: FunctionContext, content: str) -> str:
-    """Summarize content using an LLM."""
-    if not os.getenv("OPENAI_API_KEY"):
-        raise MissingAPIKeyError(
-            "OPENAI_API_KEY environment variable is required. "
-            "Add it to your .env file: OPENAI_API_KEY=sk-your-key-here"
-        )
-
-    ctx.logger.info("Summarizing with LLM...")
-    response = await lm.generate(
-        model="openai/gpt-4o-mini",
-        prompt=f"Summarize this article in 2-3 sentences:\n\n{content[:4000]}",
-    )
-    return response.text
+summarizer = Agent(
+    name="hn_summarizer",
+    model="openai/gpt-5-mini",
+    instructions=SUMMARIZER_PROMPT,
+)
 
 
 @function
-async def hello_world(ctx: FunctionContext, name: str) -> str:
-    """Say hello to the world."""
-    return f"Hello, {name}!"
+async def fetch_top_ids(ctx: FunctionContext, limit: int = 5) -> list[int]:
+    """Return the first `limit` IDs from the HN top-stories feed."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(HN_TOP)
+        resp.raise_for_status()
+        ids = resp.json()
+    ctx.logger.info("Fetched %d top IDs, taking first %d", len(ids), limit)
+    return ids[:limit]
+
+
+@function
+async def fetch_story(ctx: FunctionContext, story_id: int) -> dict:
+    """Fetch one HN story by ID."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(HN_ITEM.format(id=story_id))
+        resp.raise_for_status()
+        story = resp.json() or {}
+    return {
+        "id": story_id,
+        "title": story.get("title", "(no title)"),
+        "url": story.get("url"),
+        "score": story.get("score", 0),
+        "by": story.get("by"),
+    }
+
+
+@function
+async def summarize(ctx: FunctionContext, story: dict) -> dict:
+    """Summarize one story with a small model call."""
+    prompt = f"Title: {story['title']}\nURL: {story.get('url') or '(no link)'}"
+    result = await summarizer.run(user_message=prompt, context=ctx)
+    return {
+        "id": story["id"],
+        "title": story["title"],
+        "url": story.get("url"),
+        "summary": result.output.strip(),
+    }
+
+
+@function
+async def assemble_digest(ctx: FunctionContext, summaries: list[dict]) -> dict:
+    """Combine the per-story summaries into a single readable digest."""
+    lines = ["# Hacker News digest\n"]
+    for i, s in enumerate(summaries, start=1):
+        link = f" — {s['url']}" if s.get("url") else ""
+        lines.append(f"{i}. **{s['title']}**{link}\n   {s['summary']}\n")
+    body = "\n".join(lines)
+    return {
+        "count": len(summaries),
+        "digest": body,
+    }

@@ -343,7 +343,7 @@ async def travel_booking_workflow(ctx, message, session_id):
         agent_input = message
 
     # 5. Run agent with tools
-    result = await travel_booking_agent.run_sync(agent_input, context=ctx)
+    result = await travel_booking_agent.run(agent_input, context=ctx)
 
     # 6. Save response and track tool usage
     await session.add_message("assistant", result.output)

@@ -1,0 +1,18 @@
+{
+  "name": "quickstart",
+  "version": "0.2.0",
+  "type": "module",
+  "private": true,
+  "description": "AGNT5 quickstart: fan-out workflow that summarizes the top Hacker News stories",
+  "scripts": {
+    "start": "npx tsx app.ts"
+  },
+  "dependencies": {
+    "@agnt5/sdk": "^0.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

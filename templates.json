@@ -3,13 +3,29 @@
   "templates": {
     "quickstart": {
       "title": "Quickstart",
-      "description": "Minimal template with basic functions and workflow",
+      "description": "Fan-out workflow that summarizes the top Hacker News stories",
       "category": "Getting Started",
       "capabilities": ["workflows", "functions"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v0.2.0",
+          "versions": ["v0.2.0"]
+        },
+        "typescript": {
+          "latest": "v0.2.0",
+          "versions": ["v0.2.0"]
+        }
+      }
+    },
+    "deep-wiki-agent": {
+      "title": "DeepWiki Investigator",
+      "description": "Durable investigator agent with DeepWiki MCP, human review, and a checkpointed save step",
+      "category": "Research & Analysis",
+      "capabilities": ["agents", "workflows", "mcp", "hitl"],
+      "languages": {
+        "python": {
+          "latest": "v0.1.2",
+          "versions": ["v0.1.2"]
         }
       }
     },

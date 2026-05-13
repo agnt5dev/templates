@@ -279,7 +279,7 @@ async def tutor_chat_workflow(ctx, message, session_id):
     recent_messages = await conversation.get_recent_messages(5)
 
     # 5. Pass to triage agent (will handoff to specialist)
-    result = await tutor_agent.run_sync(agent_input, context=ctx)
+    result = await tutor_agent.run(agent_input, context=ctx)
 
     # 6. Save response and return
     await conversation.add_message("assistant", response)

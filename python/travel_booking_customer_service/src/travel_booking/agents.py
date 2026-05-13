@@ -116,7 +116,6 @@ Infer codes automatically when users mention cities.
 ✓ When creating itineraries, include specific flight/hotel details
 ✓ Be helpful and ensure all details are accurate""",
     tools=[search_flights, search_hotels, create_itinerary]
-    # temperature=0.2,
 )
 
 

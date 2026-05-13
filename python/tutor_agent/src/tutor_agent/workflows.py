@@ -7,8 +7,8 @@ This demonstrates the agent handoff pattern where a triage agent delegates to sp
 
 import os
 from agnt5 import workflow, WorkflowContext
-from entities import TutorConversation
-from agents import tutor_agent
+from tutor_agent.entities import TutorConversation
+from tutor_agent.agents import tutor_agent
 
 
 @workflow
@@ -65,7 +65,7 @@ async def tutor_chat_workflow(ctx: WorkflowContext, message: str, session_id: st
         agent_input = f"Subject area: {primary_subject}\nStudent question: {message}{context_str}"
 
         # The triage agent will automatically hand off to specialized tutors (history/math)
-        result = await tutor_agent.run_sync(agent_input, context=ctx)
+        result = await tutor_agent.run(agent_input, context=ctx)
         response = result.output
         
     except Exception as e:

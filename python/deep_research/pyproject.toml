@@ -5,7 +5,7 @@ description = "Deep Research system built on AGNT5 SDK"
 requires-python = ">=3.11"
 
 dependencies = [
-    "agnt5~=0.3.7",
+    "agnt5>=0.4.0a2",
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
     "python-dotenv>=1.2.1",
@@ -36,3 +36,8 @@ line-length = 100
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+# === LOCAL SDK OVERRIDE (added by run-template-with-local-sdk.sh) ===
+[tool.uv.sources]
+agnt5 = { path = "/Users/arun/code/agnt5/agnt5/platform/../sdk/sdk-python", editable = true }
+# ====================================================================
