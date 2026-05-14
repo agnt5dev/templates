@@ -1,37 +1,51 @@
+"""The `digest` workflow — fan out across the top Hacker News stories.
+
+Every `ctx.task(...)` is a durable checkpoint. If the worker crashes after some
+stories have been summarized, the runtime re-runs only the missing ones — model
+calls included.
+"""
+from __future__ import annotations
+
+import asyncio
+
 from agnt5 import WorkflowContext, workflow
 
-from agnt5_quickstart.functions import MissingAPIKeyError, fetch_article, summarize
+from agnt5_quickstart.functions import (
+    assemble_digest,
+    fetch_story,
+    fetch_top_ids,
+    summarize,
+)
 
 
 @workflow
-async def research(ctx: WorkflowContext, url: str) -> dict:
-    """Fetch an article and summarize it."""
-    # Step 1: Fetch (checkpointed)
-    content = await ctx.task(fetch_article, url=url)
-    ctx.logger.info(f"Fetched article from {url}")
+async def digest(ctx: WorkflowContext, limit: int = 5) -> dict:
+    """Fetch the top `limit` HN stories, summarize them in parallel, assemble.
 
-    # Step 2: Summarize (checkpointed)
-    try:
-        summary = await ctx.task(summarize, content=content)
-        ctx.logger.info(f"Summarized article from {url}")
-    except MissingAPIKeyError as e:
-        ctx.logger.warning(str(e))
-        return {
-            "url": url,
-            "error": str(e),
-            "status": "failed",
-            "step": "summarize",
-        }
+    Trace shape:
+        digest (workflow)
+        ├─ fetch_top_ids
+        ├─ fetch_story (×N parallel)
+        ├─ summarize   (×N parallel)
+        └─ assemble_digest
+    """
+    ctx.logger.info("Starting digest for top %d stories", limit)
 
-    return {"url": url, "summary": summary, "status": "success"}
+    # 1. One checkpoint: pull the IDs.
+    ids = await ctx.task(fetch_top_ids, limit=limit)
 
+    # 2. Fan out: each fetch_story is its own checkpoint. asyncio.gather runs
+    #    them concurrently. A worker restart resumes from whichever of these
+    #    had completed.
+    stories = await asyncio.gather(*[
+        ctx.task(fetch_story, story_id=i) for i in ids
+    ])
 
-@workflow
-async def hello_world_wf(ctx: WorkflowContext, name: str) -> dict:
-    """Say hello to the world."""
-    ctx.logger.info(f"Hello, {name}!")
+    # 3. Fan out again on summarization. The Agent inside each `summarize`
+    #    call passes `context=ctx`, so model calls also checkpoint.
+    summaries = await asyncio.gather(*[
+        ctx.task(summarize, story=s) for s in stories
+    ])
 
-    greeting = f"Hello, {name}!"
-    ctx.logger.info(f"Received greeting: {greeting}")
-
-    return {"greeting": greeting, "status": "success"}
+    # 4. Combine. One last checkpoint, then return.
+    return await ctx.task(assemble_digest, summaries=summaries)

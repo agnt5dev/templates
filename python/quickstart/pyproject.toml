@@ -1,47 +1,32 @@
 [project]
 name = "agnt5-quickstart"
-version = "0.1.0"
-description = "Durable workflow that survives failures"
+version = "0.2.1"
+description = "AGNT5 quickstart: fan-out workflow that summarizes the top Hacker News stories"
 authors = [
     { name = "AGNT5 Devs", email = "devs@agnt5.com" }
 ]
 dependencies = [
-    "agnt5~=0.3.7",
-    "pydantic>=2.9.2",
-    "httpx>=0.28.1"
+    "agnt5~=0.7.3",
+    "httpx~=0.27",
 ]
 readme = "README.md"
-requires-python = ">= 3.11"
-keywords = ["agnt5", "workflow", "ai", "orchestration", "quickstart"]
+requires-python = ">= 3.12"
+keywords = ["agnt5", "workflow", "agent", "quickstart", "hacker-news"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [project.urls]
 Homepage = "https://github.com/agnt5/agnt5"
 Documentation = "https://docs.agnt5.com"
-Repository = "https://github.com/agnt5/agnt5"
-"Bug Tracker" = "https://github.com/agnt5/agnt5/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[dependency-groups]
-dev = [
-    "pytest~=8.4",
-    "pytest-asyncio~=1.2",
-    "pytest-benchmark~=5.1",
-]
 
 [tool.hatch.metadata]
 allow-direct-references = true

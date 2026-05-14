@@ -6,13 +6,8 @@ import os
 import sys
 import logging
 from agnt5 import Worker
-from deep_research.workflows import (
-    deep_research_workflow,
-    clarify_and_plan,
-    conduct_research,
-    write_report,
-)
-from deep_research.entities import ResearchSession
+from deep_research.workflows import deep_research_workflow
+from deep_research.functions import (clarify_and_plan, conduct_research, write_report)
 from deep_research.agents import scoping_agent, research_agent, writing_agent
 
 
@@ -32,20 +27,19 @@ async def main():
 
     # Configuration from environment
     coordinator_endpoint = os.getenv("AGNT5_COORDINATOR_ENDPOINT", "http://localhost:34186")
-    tenant_id = os.getenv("AGNT5_TENANT_ID")
+    project_id = os.getenv("AGNT5_PROJECT_ID")
     deployment_id = os.getenv("AGNT5_DEPLOYMENT_ID")
 
-    logger.info(f"Environment - TENANT_ID: {tenant_id}, DEPLOYMENT_ID: {deployment_id}")
+    logger.info(f"Environment - PROJECT_ID: {project_id}, DEPLOYMENT_ID: {deployment_id}")
 
     try:
         worker = Worker(
             service_name=SERVICE_NAME,
-            service_version="2.0.0",  # Bumped version for simplified architecture
+            service_version="2.1.0",  # Bumped version for state API migration
             coordinator_endpoint=coordinator_endpoint,
             runtime="standalone",
             workflows=[deep_research_workflow],
             functions=[clarify_and_plan, conduct_research, write_report],
-            entities=[ResearchSession],
             agents=[scoping_agent, research_agent, writing_agent],
         )
 
@@ -53,7 +47,6 @@ async def main():
         logger.info("  - 3 specialized agents: Scoping, Research, Writing")
         logger.info("  - 1 main workflow: deep_research_workflow")
         logger.info("  - 3 stage functions: clarify_and_plan, conduct_research, write_report")
-        logger.info("  - 1 entity: ResearchSession (simplified)")
 
         # Start the worker
         logger.info("Starting worker and registering with coordinator...")

@@ -11,7 +11,7 @@ from agnt5 import Agent, handoff
 # Specialized History Tutor Agent
 history_tutor_agent = Agent(
     name="history_tutor",
-    model="anthropic/claude-haiku-4-5",
+    model="openai/gpt-4o-mini",
     instructions="""You are a specialized history tutor agent designed to provide comprehensive assistance with historical queries.
 
 Your primary responsibilities:
@@ -42,7 +42,7 @@ max_tokens=4096
 # Specialized Math Tutor Agent
 math_tutor_agent = Agent(
     name="math_tutor",
-    model="anthropic/claude-haiku-4-5",
+    model="openai/gpt-4o-mini",
     instructions="""You are a specialized mathematics tutor agent designed to provide comprehensive assistance with mathematical problems and concepts.
 
 Your primary responsibilities:
@@ -83,7 +83,7 @@ max_tokens=4096
 # Triage Agent - Routes questions to specialized tutors using handoffs
 triage_agent = Agent(
     name="triage_tutor",
-    model="openai/gpt-5-mini",
+    model="openai/gpt-4o-mini",
     instructions="""You are a triage agent that helps students by routing their questions to specialized tutors.
 
 Your role:
@@ -91,7 +91,7 @@ Your role:
 - Transfer to the appropriate specialist tutor using handoffs
 - For history questions: Use transfer_to_history_tutor
 - For math questions: Use transfer_to_math_tutor
-- For general questions or multiple subjects: Provide helpful guidance and suggest which specialist to consult
+- For general questions except math and history subjects: Provide helpful guidance and suggest which specialist to consult
 
 Decision criteria:
 - History: Questions about historical events, periods, figures, wars, civilizations, dates, cultural movements

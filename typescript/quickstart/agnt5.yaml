@@ -1,0 +1,13 @@
+name: quickstart
+language: typescript
+language_version: "22"
+environment: dev
+variables: {}
+
+worker:
+  command: "npx tsx app.ts"
+
+deploy:
+  resources:
+    memory: 512Mi
+    cpu: 500m

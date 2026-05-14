@@ -6,13 +6,13 @@ import os
 import sys
 import logging
 from agnt5 import Worker
-from agents import tutor_agent, history_tutor_agent, math_tutor_agent
-from entities import TutorConversation
-from workflows import tutor_chat_workflow
+from tutor_agent.agents import tutor_agent, history_tutor_agent, math_tutor_agent
+from tutor_agent.entities import TutorConversation
+from tutor_agent.workflows import tutor_chat_workflow
 
 # Configure logging (this will also control Rust log levels via PyO3-log)
 logging.basicConfig(
-    level=logging.DEBUG,  # Use DEBUG to see all Rust logs
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -25,14 +25,13 @@ async def main():
 
     # Configuration from environment
     coordinator_endpoint = os.getenv("AGNT5_COORDINATOR_ENDPOINT", "http://localhost:34186")
-    tenant_id = os.getenv("AGNT5_TENANT_ID")
+    project_id = os.getenv("AGNT5_PROJECT_ID")
     deployment_id = os.getenv("AGNT5_DEPLOYMENT_ID")
 
     # Log the IDs we're seeing
-    logger.info(f"Environment variables - TENANT_ID: {tenant_id}, DEPLOYMENT_ID: {deployment_id}")
+    logger.info(f"Environment variables - PROJECT_ID: {project_id}, DEPLOYMENT_ID: {deployment_id}")
 
-    # Note: The SDK should read these from environment variables automatically
-    # AGNT5_TENANT_ID and AGNT5_DEPLOYMENT_ID must be set in the environment
+    # The SDK reads these from the environment automatically.
 
     try:
         worker = Worker(

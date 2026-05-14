@@ -115,7 +115,7 @@ async def async_build_context(
         ticket_url=ticket_url
     )
 
-    result = await context_builder_agent.run_sync(
+    result = await context_builder_agent.run(
         user_message=context_prompt,
         context=ctx
     )
@@ -150,7 +150,7 @@ Focus on:
 Provide structured, actionable feedback with file/line references.
 """
 
-    result = await reviewer_agent.run_sync(
+    result = await reviewer_agent.run(
         user_message=review_user_prompt,
         context=ctx
     )

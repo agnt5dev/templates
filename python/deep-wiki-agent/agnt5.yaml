@@ -1,0 +1,9 @@
+name: deep-wiki-agent
+language: python
+language_version: "3.12"
+environment: dev
+
+deploy:
+  resources:
+    memory: 512Mi
+    cpu: 500m

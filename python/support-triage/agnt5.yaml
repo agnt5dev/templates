@@ -1,0 +1,8 @@
+name: support-triage
+language: python
+language_version: "3.14"
+environment: development
+variables: {}
+
+worker:
+  command: "uv run --no-sync python app.py"

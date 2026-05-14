@@ -101,7 +101,7 @@ async def travel_booking_workflow(
 
     # Run the travel booking agent with conversation context
     ctx.logger.info("Starting travel booking agent")
-    result = await travel_booking_agent.run_sync(agent_input, context=ctx)
+    result = await travel_booking_agent.run(agent_input, context=ctx)
 
     ctx.logger.info(f"Agent completed with output: {result.output[:100]}...")
 
