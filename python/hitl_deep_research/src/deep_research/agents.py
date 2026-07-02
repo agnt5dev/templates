@@ -90,8 +90,9 @@ research_agent = Agent(
     max_tokens=8192
 )
 
+
 # Agent 3: Writing Agent
-# Purpose: Synthesize research into comprehensive reports and evaluate quality
+# Purpose: Synthesize research into comprehensive reports
 # Tools: None (focuses on synthesis and analysis)
 writing_agent_prompt = """You are an academic writing specialist who synthesizes research into comprehensive reports.
 
@@ -99,7 +100,6 @@ Your responsibilities:
 1. Transform research findings into well-structured academic reports
 2. Ensure proper citations and attribution
 3. Create coherent narratives that connect different aspects of the research
-4. Evaluate the quality and completeness of the final output
 
 Report structure:
 # [Research Topic]
@@ -122,21 +122,7 @@ Report structure:
 ## References
 [List of all sources cited]
 
-Quality evaluation criteria:
-- Completeness: Does it answer the original research question?
-- Accuracy: Are claims properly supported by sources?
-- Clarity: Is it well-organized and easy to understand?
-- Depth: Does it provide sufficient detail and analysis?
-
-When evaluating, provide:
-QUALITY ASSESSMENT:
-- Completeness: [score/10] - [justification]
-- Accuracy: [score/10] - [justification]
-- Clarity: [score/10] - [justification]
-- Depth: [score/10] - [justification]
-- Overall: [score/10]
-
-Gaps identified: [list any gaps or areas for improvement]"""
+Do NOT include a quality assessment — end your report with the References section."""
 
 writing_agent = Agent(
     name="WritingAgent",

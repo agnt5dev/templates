@@ -7,7 +7,20 @@ land in Studio. Kill the worker mid-run and see it resume.
 
 - Node 22+
 - `agnt5` CLI
-- `OPENAI_API_KEY` in `.env`
+- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`
+
+## Configure a model key
+
+Copy the example file, then uncomment and fill in one provider key:
+
+```bash
+cp .env.example .env
+```
+
+The template uses OpenAI by default. If you use Anthropic, set
+`ANTHROPIC_API_KEY`, change `model` to `LM.anthropic()`, and change
+`modelName` in `src/functions.ts` to
+`anthropic/claude-3-5-haiku-20241022`.
 
 ## Run it
 
@@ -60,11 +73,13 @@ Trigger `digest` from Studio. The trace appears the same way.
 | `src/functions.ts` | `fetchTopIds`, `fetchStory`, `summarize`, `assembleDigest` |
 | `app.ts` | Registers the workflow and steps with AGNT5 |
 | `agnt5.yaml` | Project metadata for the CLI |
+| `.env.example` | Commented Anthropic and OpenAI key placeholders |
 
 ## Notes
 
 - The Hacker News API is public; no token required.
-- Default model is `openai/gpt-5-mini`. Change it on the `modelName` line in
+- Default model is `openai/gpt-5-mini`. For Anthropic, use
+  `anthropic/claude-3-5-haiku-20241022` on the `modelName` line in
   `src/functions.ts`.
 - Every step call inside the workflow is a checkpoint. Keep new steps as
   `fn(...).run(...)` and call them through `ctx` so the runtime can skip them

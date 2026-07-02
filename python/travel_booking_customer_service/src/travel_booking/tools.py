@@ -6,7 +6,7 @@ Provides tools for searching flights, hotels, and creating itineraries using Ser
 
 import os
 import requests
-from typing import Dict, Optional
+from typing import Optional
 
 from agnt5 import Context, tool
 
@@ -19,7 +19,7 @@ async def search_flights(
     outbound_date: str,
     return_date: Optional[str] = None,
     adults: int = 1,
-) -> Dict:
+) -> dict:
     """Search for flights using SerpAPI Google Flights.
 
     Args:
@@ -96,7 +96,7 @@ async def search_hotels(
     check_in_date: str,
     check_out_date: str,
     adults: int = 1,
-) -> Dict:
+) -> dict:
     """Search for hotels using SerpAPI Google Hotels.
 
     Args:
@@ -160,7 +160,7 @@ async def create_itinerary(
     destination: str,
     travel_dates: str,
     preferences: str = "",
-) -> Dict:
+) -> dict:
     """Create a travel itinerary framework.
 
     Args:

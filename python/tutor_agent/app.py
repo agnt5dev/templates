@@ -7,10 +7,8 @@ import sys
 import logging
 from agnt5 import Worker
 from tutor_agent.agents import tutor_agent, history_tutor_agent, math_tutor_agent
-from tutor_agent.entities import TutorConversation
 from tutor_agent.workflows import tutor_chat_workflow
 
-# Configure logging (this will also control Rust log levels via PyO3-log)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -19,19 +17,12 @@ logger = logging.getLogger(__name__)
 
 SERVICE_NAME = "agnt5-tutor-agent"
 
+
 async def main():
     """Main entry point for the worker."""
     logger.info("Starting %s worker...", SERVICE_NAME)
 
-    # Configuration from environment
     coordinator_endpoint = os.getenv("AGNT5_COORDINATOR_ENDPOINT", "http://localhost:34186")
-    project_id = os.getenv("AGNT5_PROJECT_ID")
-    deployment_id = os.getenv("AGNT5_DEPLOYMENT_ID")
-
-    # Log the IDs we're seeing
-    logger.info(f"Environment variables - PROJECT_ID: {project_id}, DEPLOYMENT_ID: {deployment_id}")
-
-    # The SDK reads these from the environment automatically.
 
     try:
         worker = Worker(
@@ -39,15 +30,11 @@ async def main():
             service_version="1.0.0",
             coordinator_endpoint=coordinator_endpoint,
             runtime="standalone",
-            agents=[tutor_agent, history_tutor_agent, math_tutor_agent],  # Triage agent + specialist agents
-            entities=[TutorConversation],  # Register entities for state management
-            workflows=[tutor_chat_workflow],  # Register workflows
+            agents=[tutor_agent, history_tutor_agent, math_tutor_agent],
+            workflows=[tutor_chat_workflow],
         )
 
-        # Using agent handoffs: triage_agent delegates to history_tutor and math_tutor
         logger.info("Worker created with agent handoffs architecture")
-
-        # Start the worker (this is async and will block until shutdown)
         logger.info("Starting worker and registering with coordinator...")
         await worker.run()
 

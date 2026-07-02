@@ -9,8 +9,6 @@ import './src/functions.js';
 import './src/workflows.js';
 
 async function main() {
-  console.log('Starting quickstart worker...');
-
   const coordinatorEndpoint =
     process.env.AGNT5_COORDINATOR_ENDPOINT || 'http://localhost:34180';
 
@@ -19,7 +17,7 @@ async function main() {
     coordinatorEndpoint,
   });
 
-  console.log('Worker created. Connecting to AGNT5 runtime...');
+  // worker.run() prints the startup banner — no need to duplicate it here.
   await worker.run();
 }
 

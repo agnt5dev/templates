@@ -7,7 +7,19 @@ land in Studio. Kill the worker mid-run and see it resume.
 
 - Python 3.12+
 - `agnt5` CLI
-- `OPENAI_API_KEY` in `.env`
+- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`
+
+## Configure a model key
+
+Copy the example file, then uncomment and fill in one provider key:
+
+```bash
+cp .env.example .env
+```
+
+The template uses OpenAI by default. If you use Anthropic, set
+`ANTHROPIC_API_KEY` and change the summarizer model in `functions.py` to
+`anthropic/claude-3-5-haiku-20241022`.
 
 ## Run it
 
@@ -59,11 +71,13 @@ Trigger `digest` from Studio. The trace appears the same way.
 | `functions.py` | `fetch_top_ids`, `fetch_story`, `summarize`, `assemble_digest` |
 | `app.py` | Registers the workflow and steps with AGNT5 |
 | `agnt5.yaml` | Project metadata for the CLI |
+| `.env.example` | Commented Anthropic and OpenAI key placeholders |
 
 ## Notes
 
 - The Hacker News API is public; no token required.
-- Default model is `openai/gpt-5-mini`. Change it on the `model="..."` line in
+- Default model is `openai/gpt-5-mini`. For Anthropic, use
+  `anthropic/claude-3-5-haiku-20241022` on the `model="..."` line in
   `functions.py`.
 - Every `ctx.task(...)` is a checkpoint. Side effects go through `ctx.task` so
   the runtime can skip them on replay.

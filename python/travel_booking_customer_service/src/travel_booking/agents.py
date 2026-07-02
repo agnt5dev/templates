@@ -10,7 +10,7 @@ from travel_booking.tools import search_flights, search_hotels, create_itinerary
 
 travel_booking_agent = Agent(
     name="travel_booking_agent",
-    model="openai/gpt-4o-mini",
+    model="openai/gpt-5-mini",
     instructions="""You are a professional travel booking assistant helping customers plan their trips.
 
 ## Communication Style
@@ -115,7 +115,7 @@ Infer codes automatically when users mention cities.
 ✓ After showing results, proactively offer next steps
 ✓ When creating itineraries, include specific flight/hotel details
 ✓ Be helpful and ensure all details are accurate""",
-    tools=[search_flights, search_hotels, create_itinerary]
+    tools=[search_flights, search_hotels, create_itinerary],
 )
 
 

@@ -8,26 +8,15 @@ For production deployment, use app.py instead.
 import asyncio
 
 from agnt5._telemetry import setup_module_logger
-from agnt5.entity import with_entity_context
 
-from coding_agent_agnt5.workflows import coding_agent_workflow
-from coding_agent_agnt5.config import config
+from coding_agent.workflows import coding_agent_workflow
+from coding_agent.config import config
 
 
 logger = setup_module_logger(__name__)
 
 
-@with_entity_context
 async def main(task_description: str, max_retries: int = 15):
-    """Run the coding agent workflow in development mode.
-
-    Args:
-        task_description: Description of the coding task
-        max_retries: Maximum number of retry attempts (default: 15)
-
-    Returns:
-        WorkflowResult model or None if configuration error
-    """
     try:
         config.validate()
     except ValueError as e:

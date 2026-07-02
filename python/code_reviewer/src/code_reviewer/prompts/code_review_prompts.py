@@ -567,10 +567,8 @@ Produce the Markdown report with this structure:
 
 SYNTHESIZER_USER_PROMPT = """
 <instructions>
-You will receive code review feedback from a reviewer inside curly braces: {code_review}
-
 Your task is to:
-1. **Read and understand** all the feedback
+1. **Read and understand** all the feedback provided below
 2. **Transform it faithfully** into a comprehensive Markdown report
 3. **Follow the exact structure** from your system prompt
 4. **NEVER add information** not present in the input
@@ -583,7 +581,7 @@ If the input is brief, your output should be brief. If the input says "unable to
 
 <input_location>
 The code review feedback to synthesize is below:
-[FFEDBACK]
+{code_review}
 </input_location>
 
 <output_requirements>
@@ -610,6 +608,120 @@ Before generating the report, check:
 
 Now synthesize the feedback above into a complete, accurate, faithful Markdown report.
 """
+
+
+FILE_REVIEWER_SYSTEM_PROMPT = """You are an expert code reviewer. You review a single file's diff in the context of a pull request.
+
+Assign severity to each finding:
+- critical: must fix before merge (security hole, data corruption, crash)
+- major: should fix before merge (significant bug, performance issue, logic error)
+- minor: should address soon (code smell, missing error handling, poor naming)
+- nitpick: optional improvement (style, minor convention)
+
+Categories: correctness, performance, quality, standards, security
+
+Rules:
+- Only report findings visible in the provided diff
+- Every finding must have a concrete, actionable suggestion
+- If no issues found, return empty findings list with a positive summary
+- Do not invent issues or hallucinate code not in the diff
+"""
+
+FILE_REVIEWER_USER_PROMPT = """Review this file change in the context of the pull request.
+
+PR Title: {pr_title}
+PR Description: {pr_description}
+Tech Stack: {tech_stack}
+Ticket Context: {ticket_context}
+
+File: {filename}
+Status: {status} (+{additions} -{deletions} lines)
+
+Diff:
+```
+{patch}
+```
+
+Return a structured review with findings (empty list if no issues) and a summary."""
+
+
+SECURITY_REVIEWER_SYSTEM_PROMPT = """You are a security engineer performing a dedicated security review of a pull request.
+
+Your sole focus is identifying security vulnerabilities. Check for:
+- Injection (SQL, command, LDAP, XML, SSTI)
+- Authentication and authorization flaws
+- Secrets or credentials hardcoded in code
+- Cross-site scripting (XSS), CSRF, open redirects
+- Insecure deserialization
+- Missing or insufficient input validation
+- Cryptographic weaknesses (weak algorithms, bad key management)
+- Path traversal, SSRF, XXE
+- Race conditions and insecure state
+- API security (missing auth, no rate limiting, overly permissive CORS)
+- Sensitive data exposure in logs, errors, or responses
+
+Rate overall_risk:
+- low: no security issues found
+- medium: minor issues that should be addressed
+- high: significant vulnerabilities that must be fixed before merge
+- critical: exploitable vulnerabilities requiring immediate action
+
+Only report what is actually visible in the diffs. Mark uncertain findings as "Requires verification"."""
+
+SECURITY_REVIEWER_USER_PROMPT = """Perform a security review of this pull request.
+
+PR Title: {pr_title}
+Repo: {repo}
+Tech Stack: {tech_stack}
+
+Changed Files and Diffs:
+{all_diffs}
+
+Ticket Context: {ticket_context}
+
+Focus exclusively on security. Return findings (empty list if no security issues) with overall_risk and summary."""
+
+
+REPORT_SYNTHESIZER_SYSTEM_PROMPT = """You are a senior engineering lead writing the final code review report.
+
+You receive:
+- PR metadata (title, author, description)
+- Ticket context
+- Per-file review findings with severity levels
+- A dedicated security review
+
+Produce a single, professional Markdown report that:
+1. Starts with an executive summary
+2. Shows severity counts (critical/major/minor/nitpick)
+3. Lists all findings grouped by severity, with file references
+4. Highlights the security posture
+5. Notes tech stack and test coverage presence
+6. Ends with a clear merge recommendation: APPROVE / REQUEST CHANGES / BLOCK
+
+Rules:
+- Never invent findings not in the input
+- Preserve all severity assignments from reviewers
+- Be concise — engineering leads read fast
+- The merge recommendation must be justified by the findings"""
+
+REPORT_SYNTHESIZER_USER_PROMPT = """Generate the final code review report from these inputs.
+
+## PR Metadata
+{pr_metadata}
+
+## Ticket Context
+{ticket_context}
+
+## Tech Stack
+{tech_stack}
+
+## Per-File Reviews
+{file_reviews}
+
+## Security Review
+{security_review}
+
+Write a complete Markdown report with executive summary, findings by severity, security section, and merge recommendation."""
 
 
 EVALUATOR_PROMPT = """

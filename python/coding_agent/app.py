@@ -9,8 +9,8 @@ import asyncio
 from agnt5 import Worker
 from agnt5._telemetry import setup_module_logger
 
-from coding_agent_agnt5.workflows import coding_agent_workflow
-from coding_agent_agnt5.functions import (
+from coding_agent.workflows import coding_agent_workflow
+from coding_agent.functions import (
     planner_node,
     code_generator_node,
     test_generator_node,
@@ -19,8 +19,8 @@ from coding_agent_agnt5.functions import (
     final_response_node,
     error_analyzer_node
 )
-from coding_agent_agnt5.tools import E2BSandboxTools
-from coding_agent_agnt5.config import config
+from coding_agent.tools import E2BSandboxTools
+from coding_agent.config import config
 
 logger = setup_module_logger(__name__)
 

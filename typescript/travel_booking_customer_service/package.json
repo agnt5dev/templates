@@ -1,0 +1,17 @@
+{
+  "name": "travel-booking",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx tsx app.ts"
+  },
+  "dependencies": {
+    "@agnt5/sdk": "^0.5.7"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0"
+  }
+}

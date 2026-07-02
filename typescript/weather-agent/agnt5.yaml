@@ -1,0 +1,7 @@
+name: weather-agent
+language: typescript
+language_version: "22"
+environment: development
+variables: {}
+worker:
+  command: "npx tsx app.ts"

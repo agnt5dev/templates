@@ -1,0 +1,19 @@
+{
+  "name": "coding-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx tsx app.ts"
+  },
+  "dependencies": {
+    "@agnt5/sdk": "^0.5.7",
+    "@e2b/code-interpreter": "^1.5.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0"
+  }
+}

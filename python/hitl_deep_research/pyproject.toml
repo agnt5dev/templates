@@ -5,7 +5,7 @@ description = "Deep Research system built on AGNT5 SDK"
 requires-python = ">=3.11"
 
 dependencies = [
-    "agnt5>=0.4.0a6",
+    "agnt5~=0.8.7",
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
     "python-dotenv>=1.2.1",

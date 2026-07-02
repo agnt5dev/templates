@@ -1,6 +1,7 @@
-project: nF5DMhV94WfX6a5vWLxNMX
-name: customer-service-agnt5
+name: agnt5-customer-service
 language: python
 language_version: "3.11"
 environment: development
 variables: {}
+worker:
+  command: "uv run --no-sync python app.py"
