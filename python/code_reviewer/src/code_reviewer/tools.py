@@ -1,7 +1,9 @@
 import os
 import re
 
+import httpx
 from agnt5 import Context, FunctionContext, tool
+from agnt5._ids import generate_cid
 
 from code_reviewer.functions import (
     call_jira_api,
@@ -12,7 +14,18 @@ from code_reviewer.functions import (
 from code_reviewer.utils import parse_adf
 
 
-@tool(auto_schema=True)
+def _make_fun_ctx(ctx: Context) -> FunctionContext:
+    """Create a FunctionContext from an agent/workflow Context for calling @function helpers."""
+    return FunctionContext(
+        run_id=ctx.run_id,
+        correlation_id=generate_cid(),
+        parent_correlation_id=getattr(ctx, "_correlation_id", ""),
+        runtime_context=getattr(ctx, "_runtime_context", None),
+        trace_metadata=getattr(ctx, "_trace_metadata", None),
+    )
+
+
+@tool
 async def jira_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     """
     Fetch Jira issue details via REST API (v3).
@@ -49,7 +62,7 @@ async def jira_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     api_url = f"{jira_domain}/rest/api/3/issue/{ticket_key}"
 
     ctx.logger.info(f"🚀 Fetching Jira issue {ticket_key} from {api_url}")
-    fun_ctx = FunctionContext(run_id=ctx.run_id)
+    fun_ctx = _make_fun_ctx(ctx)
     data = await call_jira_api(
         fun_ctx, url=api_url, auth=(jira_email, jira_token)
     )
@@ -74,7 +87,7 @@ async def jira_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     return result
 
 
-@tool(auto_schema=True)
+@tool
 async def linear_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     """
     Fetch Linear issue details using GraphQL API.
@@ -106,7 +119,7 @@ async def linear_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     ticket_key = match.group(1)
     ctx.logger.info(f"🚀 Fetching Linear issue {ticket_key}")
 
-    fun_ctx = FunctionContext(run_id=ctx.run_id)
+    fun_ctx = _make_fun_ctx(ctx)
     data = await call_linear_api(
         fun_ctx, ticket_id=ticket_key, linear_token=linear_token
     )
@@ -131,24 +144,22 @@ async def linear_ticket_fetcher(ctx: Context, ticket_url: str) -> dict:
     return result
 
 
-@tool(auto_schema=True)
-async def pr_fetcher(ctx: Context, pr_url: str, max_patch_lines: int = 100) -> dict:
+@tool
+async def pr_fetcher(ctx: Context, pr_url: str) -> dict:
     """
-    Fetch Pull Request metadata and file diffs from GitHub REST API.
+    Fetch Pull Request metadata and ALL file diffs from GitHub REST API.
 
-    Large patches are truncated to prevent token overflow. Each file patch
-    is limited to max_patch_lines (default: 100 lines).
+    Paginates through all changed files so no file is missed.
 
     Args:
         ctx: FunctionContext for logging
         pr_url: Full GitHub PR URL
             (e.g., https://github.com/owner/repo/pull/123)
-        max_patch_lines: Maximum lines per file patch (default: 100)
 
     Returns:
         dict: PR data with keys: repo, pr_number, title, author, state,
             created_at, merged_at, description, changed_files, additions,
-            deletions, files (with truncated patches)
+            deletions, files (full patches, all pages)
 
     Raises:
         EnvironmentError: If GITHUB_TOKEN is missing
@@ -172,42 +183,42 @@ async def pr_fetcher(ctx: Context, pr_url: str, max_patch_lines: int = 100) -> d
         "Accept": "application/vnd.github.v3+json",
     }
 
-    log_msg = f"🚀 Fetching PR #{pr_number} and changed files from {owner}/{repo}"
-    ctx.logger.info(log_msg)
+    ctx.logger.info(f"🚀 Fetching PR #{pr_number} from {owner}/{repo}")
 
-    fun_ctx = FunctionContext(run_id=ctx.run_id)
-    pr_data_with_files = await call_github_api(
-        fun_ctx, url=api_url, headers=headers
-    )
+    fun_ctx = _make_fun_ctx(ctx)
+    pr_meta = await call_github_api(fun_ctx, url=api_url, headers=headers)
 
-    # Extract files from the response
-    files = pr_data_with_files.get("files", [])
-
-    def truncate_patch(patch: str, max_lines: int) -> str:
-        """Truncate patch to max_lines, adding truncation notice if needed."""
-        if not patch:
-            return ""
-
-        lines = patch.split("\n")
-        if len(lines) <= max_lines:
-            return patch
-
-        truncated = "\n".join(lines[:max_lines])
-        remaining = len(lines) - max_lines
-        return f"{truncated}\n... [truncated {remaining} more lines]"
+    # Paginate through ALL changed files (GitHub returns 30/page by default)
+    files: list = []
+    files_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
+    async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
+        page_url = f"{files_url}?per_page=100&page=1"
+        while page_url:
+            ctx.logger.info(f"📄 Fetching files page: {page_url}")
+            resp = await client.get(page_url)
+            resp.raise_for_status()
+            files.extend(resp.json())
+            link_header = resp.headers.get("Link", "")
+            next_url = None
+            for part in link_header.split(","):
+                part = part.strip()
+                if 'rel="next"' in part:
+                    next_url = part.split(";")[0].strip().strip("<>")
+                    break
+            page_url = next_url
 
     result = {
         "repo": f"{owner}/{repo}",
         "pr_number": int(pr_number),
-        "title": pr_data_with_files.get("title"),
-        "author": pr_data_with_files.get("user", {}).get("login"),
-        "state": pr_data_with_files.get("state"),
-        "created_at": pr_data_with_files.get("created_at"),
-        "merged_at": pr_data_with_files.get("merged_at"),
-        "description": pr_data_with_files.get("body"),
-        "changed_files": pr_data_with_files.get("changed_files"),
-        "additions": pr_data_with_files.get("additions"),
-        "deletions": pr_data_with_files.get("deletions"),
+        "title": pr_meta.get("title"),
+        "author": pr_meta.get("user", {}).get("login"),
+        "state": pr_meta.get("state"),
+        "created_at": pr_meta.get("created_at"),
+        "merged_at": pr_meta.get("merged_at"),
+        "description": pr_meta.get("body"),
+        "changed_files": pr_meta.get("changed_files"),
+        "additions": pr_meta.get("additions"),
+        "deletions": pr_meta.get("deletions"),
         "files": [
             {
                 "filename": f.get("filename"),
@@ -215,20 +226,21 @@ async def pr_fetcher(ctx: Context, pr_url: str, max_patch_lines: int = 100) -> d
                 "additions": f.get("additions"),
                 "deletions": f.get("deletions"),
                 "changes": f.get("changes"),
-                "patch": truncate_patch(f.get("patch", ""), max_patch_lines),
-                "truncated": len((f.get("patch", "")).split("\n")) > max_patch_lines,
+                "patch": f.get("patch", "") or "",
+                "has_patch": bool(f.get("patch")),
             }
             for f in files
         ],
     }
 
-    success_msg = (f"✅ Successfully fetched PR #{pr_number} "
-                   f"with {len(result['files'])} files (patches truncated to {max_patch_lines} lines)")
-    ctx.logger.info(success_msg)
+    ctx.logger.info(
+        f"✅ PR #{pr_number} fetched: {len(files)} files across all pages, "
+        f"+{pr_meta.get('additions', 0)} -{pr_meta.get('deletions', 0)}"
+    )
     return result
 
 
-@tool(auto_schema=True)
+@tool
 async def detect_ticket_source(ctx: Context, ticket_url: str) -> str:
     """
     Determine ticketing platform (Jira or Linear) based on URL pattern.

@@ -6,7 +6,7 @@ authors = [
     { name = "AGNT5 Devs", email = "devs@agnt5.com" }
 ]
 dependencies = [
-    "agnt5~=0.7.3",
+    "agnt5~=0.8.7",
     "httpx~=0.27",
 ]
 readme = "README.md"

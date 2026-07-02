@@ -1,6 +1,7 @@
-project: nF5DMhV94WfX6a5vWLxNMX
 name: agnt5-tutor-agent
 language: python
-language_version: "3.14"
+language_version: "3.11"
 environment: development
 variables: {}
+worker:
+  command: "uv run --no-sync python app.py"

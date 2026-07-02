@@ -2,46 +2,34 @@ import asyncio
 
 from agnt5 import Worker
 from agnt5._telemetry import setup_module_logger
+
 from code_reviewer.config import config
-
-from code_reviewer import (
-    code_reviewer_workflow,
-    CodeReviewSession,
-    context_builder_agent,
-    reviewer_agent,
-    synthesize_review_report,
-)
-
 
 logger = setup_module_logger(__name__)
 
 
 async def main():
-    """Start the AGNT5 Worker for the Coding Agent."""
-    logger.info("🚀 CODING AGENT - Production Worker")
+    logger.info("🚀 CODE REVIEWER - Production Worker")
 
     try:
         config.validate()
         logger.info("✅ Configuration validated")
     except ValueError as e:
-        logger.error("Configuration error while validating config: %s", e)
+        logger.error("Configuration error: %s", e)
         return
 
     worker = Worker(
-        service_name="code_reviewer_agent",
-        service_version="1.0.0",
+        service_name="code-reviewer",
+        service_version="2.0.0",
+        auto_register=True,
         metadata={
             "description": (
-                "AI-powered code reviewer agent that analyzes pull "
-                "requests and associated tickets to provide "
-                "comprehensive code reviews."
+                "AI-powered code reviewer that analyzes pull requests "
+                "with per-file parallel reviews and dedicated security analysis."
             ),
+            "capabilities": "pr-review,security-review,ticket-alignment,tech-stack-detection",
             "language": "python",
         },
-        functions=[synthesize_review_report],
-        workflows=[code_reviewer_workflow],
-        agents=[context_builder_agent, reviewer_agent],
-        entities=[CodeReviewSession],
     )
 
     logger.info("✅ Registered components successfully")

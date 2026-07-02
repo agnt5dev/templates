@@ -217,7 +217,7 @@ async def get_weather(ctx: WorkflowContext, location: str) -> WeatherData:
 @workflow(name="get_weather_interactive", chat=True)
 async def get_weather_interactive(ctx: WorkflowContext, message: str) -> str:
     """Returns natural language response with conversation history."""
-    result = await weather_agent.run(message, context=ctx)
+    result = await weather_agent.run_sync(message, context=ctx)
     return result.output
 ```
 

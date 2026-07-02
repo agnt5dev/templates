@@ -5,7 +5,7 @@
 ## Quick Start
 
 ```bash
-agnt5 create --template python/coding_agent_agnt5
+agnt5 create --template python/coding_agent
 export GROQ_API_KEY=gsk_... E2B_API_KEY=...
 agnt5 dev up
 ```
@@ -29,8 +29,8 @@ agnt5 dev up
 
 ```bash
 # Clone or create from template
-agnt5 create --template python/coding_agent_agnt5
-cd coding_agent_agnt5
+agnt5 create --template python/coding_agent
+cd coding_agent
 
 # Install dependencies
 uv sync
@@ -49,26 +49,19 @@ Get API keys:
 
 ## Usage
 
-### Via Workflow Client
-
-Call the workflow programmatically:
+### Direct Invocation (development / testing)
 
 ```python
 import asyncio
-from coding_agent_agnt5.workflows import coding_agent_workflow
-from agnt5.entity import with_entity_context
+from coding_agent.workflows import coding_agent_workflow
 
-@with_entity_context
 async def main():
     task = """
     Create a function that validates whether a string is a valid number.
     Support integers, decimals, and scientific notation.
     """
 
-    result = await coding_agent_workflow(
-        task_description=task,
-        max_retries=15
-    )
+    result = await coding_agent_workflow(task, max_retries=15)
 
     if result.success:
         print(f"Code:\n{result.code}")
@@ -131,7 +124,7 @@ coding_agent_workflow(
 
 ### Multi-Function Workflow
 
-The workflow orchestrates seven specialized function nodes:
+The workflow orchestrates eight specialized function nodes:
 
 #### 1. Planner Node
 - **Input**: Task description
@@ -139,36 +132,41 @@ The workflow orchestrates seven specialized function nodes:
 - **Model**: llama-4-scout-17b-16e-instruct
 - **Role**: Creates structured plans for implementation and testing
 
-#### 2. Code Generator Node
-- **Input**: Task, dev plan, (optional) error analysis
-- **Output**: Python code
-- **Model**: llama-4-maverick-17b-128e-instruct
-- **Role**: Generates or fixes code based on plan and failures
-
-#### 3. Test Generator Node
+#### 2. Test Generator Node
 - **Input**: Task, test plan
 - **Output**: Pytest test suite
 - **Model**: llama-4-maverick-17b-128e-instruct
-- **Role**: Creates comprehensive test coverage
+- **Role**: Generates tests first — code is written to satisfy them (TDD)
+
+#### 3. Code Generator Node
+- **Input**: Task, dev plan, generated tests, (optional) error analysis
+- **Output**: Python code
+- **Model**: llama-4-maverick-17b-128e-instruct
+- **Role**: Generates or fixes code guided by the existing test suite
 
 #### 4. Code Sync Node
 - **Input**: Main code, test code, sandbox ID
 - **Output**: Sync status, sandbox ID
 - **Role**: Uploads code files to E2B sandbox
 
-#### 5. Code Executor Node
+#### 5. Install Deps Node
+- **Input**: Main code, sandbox ID
+- **Output**: Installation status
+- **Role**: Detects and installs required packages in the sandbox before test execution
+
+#### 6. Code Executor Node
 - **Input**: Sandbox ID
 - **Output**: Test results, error logs, next action
 - **Tools**: E2B sandbox (`run_command`, `read_file`)
 - **Role**: Runs pytest and analyzes results
 
-#### 6. Error Analyzer Node
+#### 7. Error Analyzer Node
 - **Input**: Task, code, tests, error logs
 - **Output**: Error analysis with root causes and suggestions
 - **Model**: llama-4-scout-17b-16e-instruct
 - **Role**: Deep analysis of test failures to guide fixes
 
-#### 7. Final Response Node
+#### 8. Final Response Node
 - **Input**: Task, generated code
 - **Output**: Markdown documentation
 - **Role**: Generates comprehensive documentation
@@ -178,36 +176,34 @@ The workflow orchestrates seven specialized function nodes:
 ```
 1. Planning
    └─> Analyze task description
-   └─> Create development plan
-   └─> Create test plan
+   └─> Create development plan + test plan
 
-2. Generation (Iteration 1)
-   └─> [Parallel] Generate code + tests
-   └─> Sync to E2B sandbox
+2. Iteration 1 (TDD bootstrap)
+   └─> Generate pytest test suite (from test plan)
+   └─> Generate implementation (guided by tests)
+   └─> Sync both files to E2B sandbox
+   └─> Install detected dependencies
    └─> Execute tests
 
-3. Fix Loop (Iterations 2-15)
-   └─> Analyze test failures
+3. Fix Loop (Iterations 2–N)
+   └─> Analyze test failures (root causes + suggestions)
    └─> Fix code based on analysis
-   └─> Sync updated code
+   └─> Sync updated code to sandbox
+   └─> Install any new dependencies
    └─> Execute tests
-   └─> Repeat until success or max retries
+   └─> Repeat until success or max_retries
 
 4. Documentation
    └─> Generate markdown docs
-   └─> Save to final_response.md
    └─> Return results
 ```
 
 ### Iterative Refinement
 
-- First iteration generates code and tests in parallel
-- Subsequent iterations analyze failures and fix code
-- Each iteration includes:
-  1. Error analysis (identifies root causes)
-  2. Code fixing (targets specific issues)
-  3. Test execution (validates fixes)
-- Loop terminates on success or after 15 iterations
+- Tests are generated first on iteration 1; all subsequent iterations keep the same test suite
+- Error analyzer runs before each code fix to identify root causes
+- Each iteration includes: error analysis → code fix → sync → dep install → test execution
+- Loop terminates on success or after `max_retries` iterations
 
 ### E2B Sandbox Isolation
 
@@ -259,13 +255,13 @@ Error: Rate limit exceeded
 **Solution**: Wait and retry, or upgrade your Groq plan for higher rate limits.
 
 ### Import errors in generated code
-Check that the E2B sandbox has required dependencies. Modify `code_sync_node` in `src/coding_agent_agnt5/functions.py` to install packages via pip before running tests.
+Check that the E2B sandbox has required dependencies. Modify `code_sync_node` in `src/coding_agent/functions.py` to install packages via pip before running tests.
 
 ## Customization
 
 ### Change LLM Models
 
-Modify model selection in `src/coding_agent_agnt5/functions.py`:
+Modify model selection in `src/coding_agent/functions.py`:
 
 ```python
 # For planning and error analysis (planner_node, error_analyzer_node)
@@ -290,7 +286,7 @@ result = await coding_agent_workflow(
 
 ### Add Custom Tools
 
-Extend E2B tools in `src/coding_agent_agnt5/tools.py`:
+Extend E2B tools in `src/coding_agent/tools.py`:
 
 ```python
 @tool(auto_schema=True)
@@ -317,7 +313,7 @@ worker = Worker(
 
 ### Customize Test Framework
 
-Modify test generation prompts in `src/coding_agent_agnt5/prompts/coding_agent_prompts.py` to use unittest, doctest, or other frameworks instead of pytest.
+Modify test generation prompts in `src/coding_agent/prompts/coding_agent_prompts.py` to use unittest, doctest, or other frameworks instead of pytest.
 
 ### Related Templates
 

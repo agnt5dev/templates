@@ -5,8 +5,7 @@ description = "Educational tutor agent service built with AGNT5"
 requires-python = ">=3.11"
 
 dependencies = [
-    "agnt5~=0.3.7",
-    "openai>=1.0.0",
+    "agnt5~=0.8.7",
     "python-dotenv>=1.2.1",
 ]
 

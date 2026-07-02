@@ -1,11 +1,25 @@
 from agnt5 import Context, tool
+import asyncio
 import requests
 from bs4 import BeautifulSoup
 
 
 @tool(auto_schema=True)
 async def fetch_webpage_tool(ctx: Context, url: str) -> str:
-    """Fetch and extract text content from a webpage for research purposes."""
+    """Fetch and extract text content from a webpage for research purposes.
+
+    Retrieves the HTML page at the given URL, strips non-content elements
+    (scripts, ads, navigation), and returns clean text truncated to 8 000 chars.
+
+    Args:
+        ctx: AGNT5 execution context.
+        url: The webpage URL to fetch.
+
+    Returns:
+        Formatted string with page title, URL, and extracted text content.
+        Returns an error message if the request fails or the content type
+        is not HTML.
+    """
 
     ctx.logger.info(f"Webpage fetch tool called for URL: {url[:100]}...")
 
@@ -99,7 +113,21 @@ async def fetch_webpage_tool(ctx: Context, url: str) -> str:
 
 @tool(auto_schema=True)
 async def wikipedia_search_tool(ctx: Context, query: str, max_results: int = 3) -> str:
-    """Search Wikipedia for articles related to the research query."""
+    """Search Wikipedia for articles related to the research query.
+
+    Queries the Wikipedia Search API and returns formatted results with
+    titles, article URLs, and snippet previews.
+
+    Args:
+        ctx: AGNT5 execution context.
+        query: Search term or phrase to look up on Wikipedia.
+        max_results: Maximum number of articles to return (default 3, max 50).
+
+    Returns:
+        Formatted string listing matching Wikipedia articles with title,
+        URL, and snippet for each result. Returns an error message if the
+        search fails or no articles are found.
+    """
 
     ctx.logger.info(f"Wikipedia search tool called with query: {query[:100]}...")
 
@@ -116,118 +144,61 @@ async def wikipedia_search_tool(ctx: Context, query: str, max_results: int = 3) 
 
     headers = {"User-Agent": "AGNT5-DeepResearch/1.0"}
 
-    try:
-        response = requests.get(base_url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(base_url, params=params, headers=headers, timeout=30)
 
-        if "error" in data:
-            ctx.logger.error(f"Wikipedia API error: {data['error']}")
-            return f"Wikipedia search error: {data['error']}"
+            if response.status_code == 429:
+                wait = 2 ** attempt * 3  # 3s, 6s, 12s
+                ctx.logger.warning(f"Wikipedia rate-limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(wait)
+                continue
 
-        search_results = data.get("query", {}).get("search", [])
+            response.raise_for_status()
+            data = response.json()
 
-        if not search_results:
-            return f"No Wikipedia articles found for query: {query}"
+            if "error" in data:
+                ctx.logger.error(f"Wikipedia API error: {data['error']}")
+                return f"Wikipedia search error: {data['error']}"
 
-        formatted_results = []
-        for result in search_results:
-            content = result.get("snippet", "")
-            # Clean HTML tags from snippet
-            content = content.replace('<span class="searchmatch">', "").replace("</span>", "")
-            content = (
-                content.replace("&quot;", '"')
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-            )
+            search_results = data.get("query", {}).get("search", [])
 
-            title = result.get("title", "")
-            url_title = title.replace(" ", "_")
-            url = f"https://en.wikipedia.org/wiki/{url_title}"
+            if not search_results:
+                return f"No Wikipedia articles found for query: {query}"
 
-            formatted_result = f"Title: {title}\nURL: {url}\nSnippet: {content}\n"
-            formatted_results.append(formatted_result)
+            formatted_results = []
+            for result in search_results:
+                content = result.get("snippet", "")
+                content = content.replace('<span class="searchmatch">', "").replace("</span>", "")
+                content = (
+                    content.replace("&quot;", '"')
+                    .replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                )
 
-        ctx.logger.info(f"Found {len(search_results)} Wikipedia articles")
-        return f"Wikipedia search results for '{query}':\n\n" + "\n---\n".join(formatted_results)
+                title = result.get("title", "")
+                url_title = title.replace(" ", "_")
+                url = f"https://en.wikipedia.org/wiki/{url_title}"
 
-    except requests.Timeout:
-        ctx.logger.error("Wikipedia search timed out")
-        return f"Wikipedia search timed out for query: {query}"
-    except requests.ConnectionError:
-        ctx.logger.error("Failed to connect to Wikipedia")
-        return f"Failed to connect to Wikipedia for query: {query}"
-    except requests.RequestException as e:
-        ctx.logger.error(f"Wikipedia search failed: {e}")
-        return f"Wikipedia search failed for '{query}': {str(e)}"
-    except Exception as e:
-        ctx.logger.error(f"Unexpected error in Wikipedia search: {e}")
-        return f"Unexpected error in Wikipedia search for '{query}': {str(e)}"
+                formatted_result = f"Title: {title}\nURL: {url}\nSnippet: {content}\n"
+                formatted_results.append(formatted_result)
 
+            ctx.logger.info(f"Found {len(search_results)} Wikipedia articles")
+            return f"Wikipedia search results for '{query}':\n\n" + "\n---\n".join(formatted_results)
 
-@tool(auto_schema=True)
-async def analyze_research_findings_tool(ctx: Context, research_data: str, topic: str) -> str:
-    """Analyze and synthesize research findings from multiple sources."""
+        except requests.Timeout:
+            ctx.logger.error("Wikipedia search timed out")
+            return f"Wikipedia search timed out for query: {query}"
+        except requests.ConnectionError:
+            ctx.logger.error("Failed to connect to Wikipedia")
+            return f"Failed to connect to Wikipedia for query: {query}"
+        except requests.RequestException as e:
+            ctx.logger.error(f"Wikipedia search failed: {e}")
+            return f"Wikipedia search failed for '{query}': {str(e)}"
+        except Exception as e:
+            ctx.logger.error(f"Unexpected error in Wikipedia search: {e}")
+            return f"Unexpected error in Wikipedia search for '{query}': {str(e)}"
 
-    ctx.logger.info(f"Research analysis tool called for topic: {topic[:50]}...")
-
-    try:
-        # Basic analysis of the research data
-        lines = research_data.split("\n")
-        sources = []
-        key_points = []
-
-        current_section = ""
-        for line in lines:
-            line = line.strip()
-            if line.startswith("Title:") or line.startswith("Wikipedia search"):
-                current_section = line
-                sources.append(current_section)
-            elif (
-                line
-                and len(line) > 20
-                and not line.startswith("URL:")
-                and not line.startswith("Snippet:")
-            ):
-                key_points.append(line)
-
-        analysis = f"# Research Analysis: {topic}\n\n"
-
-        if sources:
-            analysis += "## Sources Analyzed:\n"
-            for i, source in enumerate(sources[:5], 1):  # Limit to 5 sources
-                analysis += f"{i}. {source}\n"
-            analysis += "\n"
-
-        if key_points:
-            analysis += "## Key Information Extracted:\n"
-            unique_points = list(dict.fromkeys(key_points))  # Remove duplicates
-            for i, point in enumerate(unique_points[:10], 1):  # Limit to 10 points
-                if len(point) > 30:  # Filter out very short points
-                    analysis += f"• {point}\n"
-            analysis += "\n"
-
-        analysis += "## Research Summary:\n"
-        analysis += f"The research on '{topic}' has been compiled from multiple sources including "
-        analysis += (
-            f"Wikipedia articles and web content. The analysis reveals {len(unique_points)} "
-        )
-        analysis += (
-            "key pieces of information that provide a comprehensive understanding of the topic.\n\n"
-        )
-
-        word_count = len(research_data.split())
-        analysis += f"## Research Metrics:\n"
-        analysis += f"• Total words analyzed: {word_count:,}\n"
-        analysis += f"• Sources consulted: {len(sources)}\n"
-        analysis += f"• Key points identified: {len(unique_points)}\n"
-
-        ctx.logger.info(f"Research analysis completed successfully")
-        return analysis
-
-    except Exception as e:
-        ctx.logger.error(f"Research analysis tool failed: {e}")
-        return (
-            f"Research analysis failed for '{topic}'. Error: {str(e)}\n\nRaw data:\n{research_data}"
-        )
+    return f"Wikipedia search failed after {max_retries} retries (rate limited) for query: {query}"

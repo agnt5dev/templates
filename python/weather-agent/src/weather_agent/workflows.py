@@ -42,7 +42,7 @@ async def get_weather_interactive(ctx: WorkflowContext, message: str, **kwargs) 
     Returns:
         str: Agent response
     """
-    result = await weather_agent.run(message, context=ctx)
+    result = await weather_agent.run_sync(message, context=ctx)
 
     ctx.logger.info(f"Weather agent response: {result.output[:100]}...")
 
