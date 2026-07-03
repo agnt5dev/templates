@@ -1,7 +1,7 @@
 [project]
 name = "customer-service-agnt5"
-version = "1.0.0"
-description = "Travel booking service with AGNT5"
+version = "1.0.1"
+description = "Customer service assistant for travel booking, built with AGNT5"
 requires-python = ">=3.11"
 
 dependencies = [
@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/travel_booking"]
+packages = ["src/customer_service"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

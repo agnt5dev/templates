@@ -22,7 +22,7 @@ A multi-subject educational assistant that routes student questions to specializ
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template tutor-agent my-tutor
+   agnt5 create --template typescript/tutor_agent my-tutor
    cd my-tutor
    ```
 

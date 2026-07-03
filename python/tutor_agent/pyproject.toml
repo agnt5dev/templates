@@ -1,6 +1,6 @@
 [project]
 name = "tutor-agent-agnt5"
-version = "1.0.0"
+version = "1.0.1"
 description = "Educational tutor agent service built with AGNT5"
 requires-python = ">=3.11"
 

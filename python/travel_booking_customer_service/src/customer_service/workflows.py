@@ -5,7 +5,7 @@ Provides workflows for orchestrating travel booking operations.
 """
 
 from agnt5 import WorkflowContext, workflow
-from travel_booking.agents import travel_booking_agent
+from customer_service.agents import travel_booking_agent
 
 
 @workflow

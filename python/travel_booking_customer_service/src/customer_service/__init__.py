@@ -7,9 +7,9 @@ This package provides comprehensive travel booking components using AGNT5 platfo
 - Workflows: Chat-based travel booking workflow
 """
 
-from travel_booking.tools import search_flights, search_hotels, create_itinerary
-from travel_booking.agents import travel_booking_agent
-from travel_booking.workflows import travel_booking_workflow
+from customer_service.tools import search_flights, search_hotels, create_itinerary
+from customer_service.agents import travel_booking_agent
+from customer_service.workflows import travel_booking_workflow
 
 __version__ = "1.0.0"
 

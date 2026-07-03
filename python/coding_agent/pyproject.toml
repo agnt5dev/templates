@@ -1,6 +1,6 @@
 [project]
 name = "coding_agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-powered coding agent with test-driven development"
 readme = "README.md"
 authors = [

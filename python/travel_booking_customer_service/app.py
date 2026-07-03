@@ -3,9 +3,9 @@
 
 import asyncio, logging, os, sys
 from agnt5 import Worker
-from travel_booking.workflows import travel_booking_workflow
-from travel_booking.agents import travel_booking_agent
-from travel_booking.tools import search_flights, search_hotels, create_itinerary
+from customer_service.workflows import travel_booking_workflow
+from customer_service.agents import travel_booking_agent
+from customer_service.tools import search_flights, search_hotels, create_itinerary
 
 logging.basicConfig(
     level=logging.INFO,

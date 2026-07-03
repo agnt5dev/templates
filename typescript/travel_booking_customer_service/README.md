@@ -22,7 +22,7 @@ A conversational travel agent that searches real flights and hotels, builds itin
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template travel-booking my-travel-agent
+   agnt5 create --template typescript/travel_booking_customer_service my-travel-agent
    cd my-travel-agent
    ```
 
