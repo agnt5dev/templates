@@ -24,7 +24,7 @@ A research pipeline that combines three specialized AI agents with a **human-in-
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template hitl-deep-research my-deep-research
+   agnt5 create --template typescript/hitl_deep_research my-deep-research
    cd my-deep-research
    ```
 

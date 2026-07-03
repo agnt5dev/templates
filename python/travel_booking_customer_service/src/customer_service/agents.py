@@ -5,7 +5,7 @@ Provides AI agents for travel booking assistance.
 """
 
 from agnt5 import Agent
-from travel_booking.tools import search_flights, search_hotels, create_itinerary
+from customer_service.tools import search_flights, search_hotels, create_itinerary
 
 
 travel_booking_agent = Agent(

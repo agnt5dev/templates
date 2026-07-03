@@ -1,6 +1,6 @@
 [project]
 name = "weather_agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "Weather Agent built using AGNT5 SDK"
 readme = "README.md"
 

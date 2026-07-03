@@ -1,86 +1,44 @@
 # Hacker News digest — AGNT5 quickstart (TypeScript)
 
-Summarize the top Hacker News stories with an AGNT5 workflow. Watch each step
-land in Studio. Kill the worker mid-run and see it resume.
+A fan-out workflow that summarizes the top Hacker News stories, with every step visible live in Studio and durable across restarts.
 
-## Prerequisites
+## What it does
 
-- Node 22+
-- `agnt5` CLI
-- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`
+- **Fetch top stories** — Pulls the current top Hacker News story IDs, then fetches each story in parallel.
+- **Summarize in parallel** — Each story is summarized independently using an LLM, then assembled into a single digest.
+- **Resume on crash** — Kill the worker mid-run and restart it; completed steps stay completed, only the missing ones re-run.
 
-## Configure a model key
+## Key concepts
 
-Copy the example file, then uncomment and fill in one provider key:
+- **Durable checkpointing** — Every step call inside the workflow is a checkpoint. Keep new steps as `fn(...).run(...)` and call them through `ctx` so the runtime can skip them on replay.
+- **Fan-out / fan-in** — `fetchStory` and `summarize` run once per story, in parallel, before `assembleDigest` combines the results.
 
-```bash
-cp .env.example .env
-```
+## Setup
 
-The template uses OpenAI by default. If you use Anthropic, set
-`ANTHROPIC_API_KEY`, change `model` to `LM.anthropic()`, and change
-`modelName` in `src/functions.ts` to
-`anthropic/claude-3-5-haiku-20241022`.
+1. Install Node.js 22+:
+   ```bash
+   node --version
+   ```
 
-## Run it
+2. Clone or create from template:
+   ```bash
+   agnt5 create --template typescript/quickstart my-digest
+   cd my-digest
+   ```
 
-```bash
-npm install
-agnt5 dev
-```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-The terminal prints a Studio URL. Open it in your browser. In Studio:
+4. Set up environment variables (uses OpenAI by default; set `ANTHROPIC_API_KEY` and update `modelName` in `src/functions.ts` to use Anthropic instead):
+   ```bash
+   cp .env.example .env
+   ```
 
-1. Pick the `digest` workflow.
-2. Set the input to `{"limit": 5}`.
-3. Click **Run**.
+5. Start the AGNT5 dev server:
+   ```bash
+   agnt5 dev
+   ```
 
-The run appears live as:
-
-```
-digest (workflow)
-├─ fetch_top_ids                  120ms
-├─ fetch_story (×5 parallel)      ~180ms each
-├─ summarize  (×5 parallel)       ~4s — gpt-5-mini
-└─ assemble_digest                900ms
-```
-
-## Kill it and watch it resume
-
-1. In Studio, trigger a longer run with input `{"limit": 10}`.
-2. While it's still going, `Ctrl+C` the `agnt5 dev` terminal.
-3. Restart: `agnt5 dev`.
-
-Studio shows the run pick up exactly where it left off — completed steps stay
-completed, only the missing ones re-run.
-
-## Deploy
-
-Create an account at [app.agnt5.com](https://app.agnt5.com), then:
-
-```bash
-agnt5 auth login
-agnt5 deploy
-```
-
-Trigger `digest` from Studio. The trace appears the same way.
-
-## What's in here
-
-| File | Purpose |
-|------|---------|
-| `src/workflows.ts` | The `digest` workflow |
-| `src/functions.ts` | `fetchTopIds`, `fetchStory`, `summarize`, `assembleDigest` |
-| `app.ts` | Registers the workflow and steps with AGNT5 |
-| `agnt5.yaml` | Project metadata for the CLI |
-| `.env.example` | Commented Anthropic and OpenAI key placeholders |
-
-## Notes
-
-- The Hacker News API is public; no token required.
-- Default model is `openai/gpt-5-mini`. For Anthropic, use
-  `anthropic/claude-3-5-haiku-20241022` on the `modelName` line in
-  `src/functions.ts`.
-- Every step call inside the workflow is a checkpoint. Keep new steps as
-  `fn(...).run(...)` and call them through `ctx` so the runtime can skip them
-  on replay.
+   The terminal prints a Studio URL. Open it, pick the `digest` workflow, set the input to `{"limit": 5}`, and click **Run**.

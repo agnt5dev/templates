@@ -1,6 +1,6 @@
 [project]
 name = "agnt5-quickstart"
-version = "0.2.1"
+version = "0.2.2"
 description = "AGNT5 quickstart: fan-out workflow that summarizes the top Hacker News stories"
 authors = [
     { name = "AGNT5 Devs", email = "devs@agnt5.com" }

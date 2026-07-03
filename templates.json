@@ -8,24 +8,12 @@
       "capabilities": ["workflows", "functions"],
       "languages": {
         "python": {
-          "latest": "v0.2.1",
-          "versions": ["v0.2.1"]
+          "latest": "v0.2.2",
+          "versions": ["v0.2.1", "v0.2.2"]
         },
         "typescript": {
-          "latest": "v0.2.1",
-          "versions": ["v0.2.1"]
-        }
-      }
-    },
-    "deep-wiki-agent": {
-      "title": "DeepWiki Investigator",
-      "description": "Durable investigator agent with DeepWiki MCP, human review, and a checkpointed save step",
-      "category": "Research & Analysis",
-      "capabilities": ["agents", "workflows", "mcp", "hitl"],
-      "languages": {
-        "python": {
-          "latest": "v0.1.2",
-          "versions": ["v0.1.2"]
+          "latest": "v0.2.2",
+          "versions": ["v0.2.1", "v0.2.2"]
         }
       }
     },
@@ -36,12 +24,12 @@
       "capabilities": ["agents", "integrations", "tooling"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v0.1.1",
+          "versions": ["v0.1.0", "v0.1.1"]
         },
         "typescript": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
+          "latest": "v1.0.1",
+          "versions": ["v1.0.0", "v1.0.1"]
         }
       }
     },
@@ -52,12 +40,12 @@
       "capabilities": ["agents", "integrations", "tooling", "evals"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v0.1.1",
+          "versions": ["v0.1.0", "v0.1.1"]
         },
         "typescript": {
-          "latest": "v2.0.0",
-          "versions": ["v2.0.0"]
+          "latest": "v2.0.1",
+          "versions": ["v2.0.0", "v2.0.1"]
         }
       }
     },
@@ -68,12 +56,12 @@
       "capabilities": ["agents", "tooling", "workflows", "integrations"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v0.1.1",
+          "versions": ["v0.1.0", "v0.1.1"]
         },
         "typescript": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
+          "latest": "v1.0.1",
+          "versions": ["v1.0.0", "v1.0.1"]
         }
       }
     },
@@ -84,24 +72,12 @@
       "capabilities": ["agents", "memory", "workflows", "integrations"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v1.0.1",
+          "versions": ["v0.1.0", "v1.0.1"]
         },
         "typescript": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
-        }
-      }
-    },
-    "deep_research": {
-      "title": "Deep Research Agent",
-      "description": "Autonomous research agent with Wikipedia sourcing and quality assessment",
-      "category": "Research & Analysis",
-      "capabilities": ["agents", "memory", "tooling", "long-running", "workflows"],
-      "languages": {
-        "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v1.0.1",
+          "versions": ["v1.0.0", "v1.0.1"]
         }
       }
     },
@@ -112,12 +88,12 @@
       "capabilities": ["agents", "memory", "workflows"],
       "languages": {
         "python": {
-          "latest": "v0.1.0",
-          "versions": ["v0.1.0"]
+          "latest": "v1.0.1",
+          "versions": ["v0.1.0", "v1.0.0", "v1.0.1"]
         },
         "typescript": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
+          "latest": "v1.0.1",
+          "versions": ["v1.0.0", "v1.0.1"]
         }
       }
     },
@@ -128,8 +104,8 @@
       "capabilities": ["agents", "workflows", "hitl"],
       "languages": {
         "typescript": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
+          "latest": "v1.0.1",
+          "versions": ["v1.0.0", "v1.0.1"]
         }
       }
     }

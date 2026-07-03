@@ -1,4 +1,4 @@
-# Coding Agent
+# Coding Agent (TypeScript)
 
 An autonomous test-driven development agent that writes, tests, and iteratively fixes Python code until all tests pass, using an E2B sandbox for execution.
 
@@ -10,25 +10,25 @@ An autonomous test-driven development agent that writes, tests, and iteratively 
 
 ## Key concepts
 
-- **Multi-node workflow** — Planner → (test generator → code generator) or (error analyzer → code generator) → sync → install deps → executor → final response.
+- **Multi-node workflow** — `plannerNode` → (`testGeneratorNode` → `codeGeneratorNode`) or (`errorAnalyzerNode` → `codeGeneratorNode`) → `codeSyncNode` → `installDepsNode` → `codeExecutorNode` → `finalResponseNode`.
 - **Structured error feedback loop** — Each failed `pytest` run is parsed into a structured `ErrorAnalysis` that drives the next fix iteration, rather than regenerating code from scratch.
 
 ## Setup
 
-1. Install uv (Python package manager):
+1. Install Node.js 22+:
    ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   node --version
    ```
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template python/coding_agent my-coding-agent
+   agnt5 create --template typescript/coding_agent my-coding-agent
    cd my-coding-agent
    ```
 
 3. Install dependencies:
    ```bash
-   uv sync
+   npm install
    ```
 
 4. Set up environment variables (`GROQ_API_KEY` and `E2B_API_KEY` are required):

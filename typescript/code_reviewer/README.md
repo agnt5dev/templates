@@ -1,4 +1,4 @@
-# Code Reviewer Agent
+# Code Reviewer Agent (TypeScript)
 
 An AI-powered code review agent that analyzes GitHub pull requests and linked tickets to deliver comprehensive, context-aware reviews.
 
@@ -10,25 +10,25 @@ An AI-powered code review agent that analyzes GitHub pull requests and linked ti
 
 ## Key concepts
 
-- **Context builder + reviewer agents** — One agent gathers PR/ticket context using tools (`pr_fetcher`, `jira_ticket_fetcher`, `linear_ticket_fetcher`); a second agent synthesizes the final report.
-- **Parallel per-file review** — `review_file_node` runs once per changed file, all in parallel, alongside a cross-file `security_review_node`.
+- **Context builder + reviewer agents** — One agent gathers PR/ticket context using tools (`prFetcher`, `jiraTicketFetcher`, `linearTicketFetcher`); a second agent synthesizes the final report.
+- **Parallel per-file review** — `reviewFileNode` runs once per changed file, all in parallel, alongside a cross-file `securityReviewNode`.
 
 ## Setup
 
-1. Install uv (Python package manager):
+1. Install Node.js 22+:
    ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   node --version
    ```
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template python/code_reviewer my-code-reviewer
+   agnt5 create --template typescript/code_reviewer my-code-reviewer
    cd my-code-reviewer
    ```
 
 3. Install dependencies:
    ```bash
-   uv sync
+   npm install
    ```
 
 4. Set up environment variables (`GITHUB_TOKEN` is required; Jira/Linear credentials are optional):

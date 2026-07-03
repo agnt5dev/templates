@@ -11,7 +11,7 @@ A conversational travel agent that searches real flights and hotels, builds itin
 ## Key concepts
 
 - **Single agent with tools** — One context-aware agent orchestrates three tools: `search_flights`, `search_hotels`, and `create_itinerary`.
-- **Persistent session entity** — Conversation history, preferences, cart items, and bookings are stored in a durable `TravelBookingSession` entity that survives restarts.
+- **Durable conversation history** — Passing `context=ctx` into `agent.run(...)` loads and saves conversation history through the workflow's own checkpointed context, so it survives worker restarts without a separate entity.
 - **Multi-turn chat** — The agent builds context incrementally across messages within a session.
 
 ## Setup
@@ -23,7 +23,7 @@ A conversational travel agent that searches real flights and hotels, builds itin
 
 2. Clone or create from template:
    ```bash
-   agnt5 create --template travel-booking my-travel-agent
+   agnt5 create --template python/travel_booking_customer_service my-travel-agent
    cd my-travel-agent
    ```
 
