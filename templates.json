@@ -103,6 +103,10 @@
       "category": "Research & Analysis",
       "capabilities": ["agents", "workflows", "hitl"],
       "languages": {
+        "python": {
+          "latest": "v1.0.0",
+          "versions": ["v1.0.0"]
+        },
         "typescript": {
           "latest": "v1.0.1",
           "versions": ["v1.0.0", "v1.0.1"]
