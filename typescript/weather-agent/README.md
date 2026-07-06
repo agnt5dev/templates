@@ -31,7 +31,12 @@ An intelligent weather assistant that answers natural language queries using rea
    npm install
    ```
 
-4. Start the AGNT5 dev server (no API keys required):
+4. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+
+5. Start the AGNT5 dev server:
    ```bash
    agnt5 dev up
    ```

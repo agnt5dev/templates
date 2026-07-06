@@ -31,7 +31,7 @@ A fan-out workflow that summarizes the top Hacker News stories, with every step 
    uv sync
    ```
 
-4. Set up environment variables (uses OpenAI by default; set `ANTHROPIC_API_KEY` and update the model in `functions.py` to use Anthropic instead):
+4. Set up environment variables:
    ```bash
    cp .env.example .env
    ```
