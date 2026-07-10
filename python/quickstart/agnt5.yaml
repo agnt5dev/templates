@@ -1,6 +1,6 @@
 name: quickstart
 language: python
-language_version: "3.12"
+language_version: "3.14"
 environment: dev
 
 deploy:

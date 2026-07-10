@@ -1,6 +1,6 @@
 name: quickstart
 language: typescript
-language_version: "22"
+language_version: "26"
 environment: dev
 variables: {}
 

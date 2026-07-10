@@ -8,12 +8,12 @@
       "capabilities": ["workflows", "functions"],
       "languages": {
         "python": {
-          "latest": "v0.2.2",
-          "versions": ["v0.2.1", "v0.2.2"]
+          "latest": "v0.2.3",
+          "versions": ["v0.2.1", "v0.2.2", "v0.2.3"]
         },
         "typescript": {
-          "latest": "v0.2.2",
-          "versions": ["v0.2.1", "v0.2.2"]
+          "latest": "v0.2.3",
+          "versions": ["v0.2.1", "v0.2.2", "v0.2.3"]
         }
       }
     },
@@ -24,12 +24,12 @@
       "capabilities": ["agents", "integrations", "tooling"],
       "languages": {
         "python": {
-          "latest": "v0.1.1",
-          "versions": ["v0.1.0", "v0.1.1"]
+          "latest": "v0.1.2",
+          "versions": ["v0.1.0", "v0.1.1", "v0.1.2"]
         },
         "typescript": {
-          "latest": "v1.0.1",
-          "versions": ["v1.0.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v1.0.0", "v1.0.1", "v1.0.2"]
         }
       }
     },
@@ -40,12 +40,12 @@
       "capabilities": ["agents", "integrations", "tooling", "evals"],
       "languages": {
         "python": {
-          "latest": "v0.1.1",
-          "versions": ["v0.1.0", "v0.1.1"]
+          "latest": "v0.1.2",
+          "versions": ["v0.1.0", "v0.1.1", "v0.1.2"]
         },
         "typescript": {
-          "latest": "v2.0.1",
-          "versions": ["v2.0.0", "v2.0.1"]
+          "latest": "v2.0.2",
+          "versions": ["v2.0.0", "v2.0.1", "v2.0.2"]
         }
       }
     },
@@ -56,12 +56,12 @@
       "capabilities": ["agents", "tooling", "workflows", "integrations"],
       "languages": {
         "python": {
-          "latest": "v0.1.1",
-          "versions": ["v0.1.0", "v0.1.1"]
+          "latest": "v0.1.2",
+          "versions": ["v0.1.0", "v0.1.1", "v0.1.2"]
         },
         "typescript": {
-          "latest": "v1.0.1",
-          "versions": ["v1.0.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v1.0.0", "v1.0.1", "v1.0.2"]
         }
       }
     },
@@ -72,12 +72,12 @@
       "capabilities": ["agents", "memory", "workflows", "integrations"],
       "languages": {
         "python": {
-          "latest": "v1.0.1",
-          "versions": ["v0.1.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v0.1.0", "v1.0.1", "v1.0.2"]
         },
         "typescript": {
-          "latest": "v1.0.1",
-          "versions": ["v1.0.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v1.0.0", "v1.0.1", "v1.0.2"]
         }
       }
     },
@@ -88,12 +88,12 @@
       "capabilities": ["agents", "memory", "workflows"],
       "languages": {
         "python": {
-          "latest": "v1.0.1",
-          "versions": ["v0.1.0", "v1.0.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v0.1.0", "v1.0.0", "v1.0.1", "v1.0.2"]
         },
         "typescript": {
-          "latest": "v1.0.1",
-          "versions": ["v1.0.0", "v1.0.1"]
+          "latest": "v1.0.2",
+          "versions": ["v1.0.0", "v1.0.1", "v1.0.2"]
         }
       }
     },
@@ -104,12 +104,12 @@
       "capabilities": ["agents", "workflows", "hitl"],
       "languages": {
         "python": {
-          "latest": "v1.0.0",
-          "versions": ["v1.0.0"]
-        },
-        "typescript": {
           "latest": "v1.0.1",
           "versions": ["v1.0.0", "v1.0.1"]
+        },
+        "typescript": {
+          "latest": "v1.0.2",
+          "versions": ["v1.0.0", "v1.0.1", "v1.0.2"]
         }
       }
     }

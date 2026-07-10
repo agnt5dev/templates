@@ -1,6 +1,6 @@
 [project]
 name = "agnt5-quickstart"
-version = "0.2.2"
+version = "0.2.3"
 description = "AGNT5 quickstart: fan-out workflow that summarizes the top Hacker News stories"
 authors = [
     { name = "AGNT5 Devs", email = "devs@agnt5.com" }
@@ -10,13 +10,13 @@ dependencies = [
     "httpx~=0.27",
 ]
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = ">=3.14"
 keywords = ["agnt5", "workflow", "agent", "quickstart", "hacker-news"]
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
