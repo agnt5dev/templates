@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"agnt5.dev/sdk-go/agnt5"
+
+	"quickstart/src/quickstart"
 )
 
 func newSummarizerModel() agnt5.LanguageModel {
@@ -30,9 +32,9 @@ func must(err error) {
 
 func main() {
 	var err error
-	summarizer, err = agnt5.NewAgent("hn_summarizer",
+	quickstart.Summarizer, err = agnt5.NewAgent("hn_summarizer",
 		agnt5.WithAgentModel(newSummarizerModel()),
-		agnt5.WithAgentInstructions(summarizerPrompt),
+		agnt5.WithAgentInstructions(quickstart.SummarizerPrompt),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -42,11 +44,11 @@ func main() {
 		agnt5.WithServiceVersion("0.1.0"),
 	)
 
-	must(agnt5.RegisterFunction(worker, "fetch_top_ids", fetchTopIDsFunction))
-	must(agnt5.RegisterFunction(worker, "fetch_story", fetchStoryFunction))
-	must(agnt5.RegisterFunction(worker, "summarize", summarizeFunction))
-	must(agnt5.RegisterFunction(worker, "assemble_digest", assembleDigestFunction))
-	must(agnt5.RegisterWorkflow(worker, "digest", digestWorkflow))
+	must(agnt5.RegisterFunction(worker, "fetch_top_ids", quickstart.FetchTopIDsFunction))
+	must(agnt5.RegisterFunction(worker, "fetch_story", quickstart.FetchStoryFunction))
+	must(agnt5.RegisterFunction(worker, "summarize", quickstart.SummarizeFunction))
+	must(agnt5.RegisterFunction(worker, "assemble_digest", quickstart.AssembleDigestFunction))
+	must(agnt5.RegisterWorkflow(worker, "digest", quickstart.DigestWorkflow))
 
 	log.Println("Worker created. Connecting to AGNT5 runtime...")
 	if err := worker.Run(context.Background()); err != nil {

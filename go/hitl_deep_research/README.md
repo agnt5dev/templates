@@ -15,6 +15,17 @@ A research pipeline that combines three specialized AI agents with a **human-in-
 - **Durable workflows** — Each stage is wrapped in `agnt5.Step`. If the worker restarts mid-run, the workflow replays from the last completed step without repeating side effects.
 - **Specialized agents** — Scoping, Research, and Writing agents each have a focused role, keeping concerns cleanly separated.
 
+## Project structure
+
+```
+main.go                       # entry point: builds the model/agents, registers components, runs the worker
+src/hitl_deep_research/         # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  tools.go                       # fetch_webpage_tool and wikipedia_search_tool
+  agents.go                      # the scoping, research, and writing agents
+  functions.go                   # plan/conduct/write pipeline stages
+  workflows.go                   # the HITL-gated research workflow
+```
+
 ## Setup
 
 1. Install Go 1.23+:

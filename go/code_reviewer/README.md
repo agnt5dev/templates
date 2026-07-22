@@ -12,8 +12,22 @@ An AI-powered code review agent that analyzes GitHub pull requests and linked ti
 
 - **Context builder + reviewer agents** — One agent gathers PR/ticket context using tools (`pr_fetcher`, `jira_ticket_fetcher`, `linear_ticket_fetcher`); a second agent synthesizes the final report.
 - **Parallel per-file review** — Each changed file is reviewed independently, all in parallel, alongside a cross-file security review, wrapped in a single `agnt5.Step` (the Go SDK has no per-item fan-out helper yet).
-- **Structured output without `response_format`** — The Go SDK's `GenerateRequest` has no schema field, so `generateStructured` (see `utils.go`) prompts the model for raw JSON matching a documented shape, unmarshals it, and retries once with an error-correction follow-up on a parse failure.
+- **Structured output without `response_format`** — The Go SDK's `GenerateRequest` has no schema field, so `GenerateStructured` (see `utils.go`) prompts the model for raw JSON matching a documented shape, unmarshals it, and retries once with an error-correction follow-up on a parse failure.
 - **Manual retry/backoff** — External API calls (GitHub, Jira, Linear) use a small exponential-backoff helper (`retryWithBackoff`) rather than the SDK's component-level `WithRetry`, since these are plain Go function calls from inside a tool handler, not separately registered components.
+
+## Project structure
+
+```
+main.go                  # entry point: loads config, builds the model/agents, registers components, runs the worker
+src/code_reviewer/         # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  models.go                 # Finding, FileReview, SecurityReview, TechStack, PRData, TicketData
+  config.go                 # environment-variable configuration and validation
+  utils.go                  # ADF parsing, retryWithBackoff, GenerateStructured
+  tools.go                  # pr_fetcher, jira_ticket_fetcher, linear_ticket_fetcher, detect_ticket_source
+  agents.go                 # the context-builder and reviewer agents
+  functions.go               # PR fetch, tech-stack detection, per-file review, security review
+  workflow.go                # the code review orchestration workflow
+```
 
 ## Setup
 

@@ -12,6 +12,8 @@ import (
 	"os"
 
 	"agnt5.dev/sdk-go/agnt5"
+
+	weather_agent "weather-agent/src/weather-agent"
 )
 
 func must(err error) {
@@ -28,21 +30,21 @@ func main() {
 		Model:  "gpt-4o-mini",
 	})
 
-	if err := newWeatherAgent(model); err != nil {
+	if err := weather_agent.NewWeatherAgent(model); err != nil {
 		log.Fatal(err)
 	}
 
-	worker := agnt5.NewWorker(serviceName,
-		agnt5.WithServiceVersion(serviceVersion),
+	worker := agnt5.NewWorker(weather_agent.ServiceName,
+		agnt5.WithServiceVersion(weather_agent.ServiceVersion),
 		agnt5.WithMetadata(map[string]string{
 			"description": "Simple weather agent for fetching weather data",
 		}),
 	)
 
-	must(agnt5.RegisterFunction(worker, "get_weather_data", getWeatherData))
-	must(agnt5.RegisterAgent(worker, weatherAgent))
-	must(agnt5.RegisterWorkflow(worker, "get_weather", getWeatherWorkflow))
-	must(agnt5.RegisterWorkflow(worker, "get_weather_interactive", getWeatherInteractiveWorkflow))
+	must(agnt5.RegisterFunction(worker, "get_weather_data", weather_agent.GetWeatherData))
+	must(agnt5.RegisterAgent(worker, weather_agent.WeatherAgent))
+	must(agnt5.RegisterWorkflow(worker, "get_weather", weather_agent.GetWeatherWorkflow))
+	must(agnt5.RegisterWorkflow(worker, "get_weather_interactive", weather_agent.GetWeatherInteractiveWorkflow))
 
 	log.Println("Connecting to AGNT5 Coordinator...")
 	if err := worker.Run(context.Background()); err != nil {

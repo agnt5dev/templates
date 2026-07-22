@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"agnt5.dev/sdk-go/agnt5"
+
+	travel_booking_customer_service "travel-booking-customer-service/src/travel_booking_customer_service"
 )
 
 const serviceName = "customer-service"
@@ -25,7 +27,7 @@ func main() {
 		Model:  "gpt-5-mini",
 	})
 
-	if err := newTravelBookingAgent(model); err != nil {
+	if err := travel_booking_customer_service.NewTravelBookingAgent(model); err != nil {
 		log.Fatal(err)
 	}
 
@@ -33,8 +35,8 @@ func main() {
 		agnt5.WithServiceVersion("1.0.0"),
 	)
 
-	must(agnt5.RegisterAgent(worker, travelBookingAgent))
-	must(agnt5.RegisterWorkflow(worker, "travel_booking_workflow", travelBookingWorkflow))
+	must(agnt5.RegisterAgent(worker, travel_booking_customer_service.TravelBookingAgent))
+	must(agnt5.RegisterWorkflow(worker, "travel_booking_workflow", travel_booking_customer_service.TravelBookingWorkflow))
 
 	if err := worker.Run(context.Background()); err != nil {
 		log.Fatal(err)

@@ -13,6 +13,15 @@ A multi-subject educational assistant that routes student questions to specializ
 - **Agent handoffs** — The triage agent uses `agnt5.NewHandoff(agent, opts...)` to build a transfer target, passed to `WithAgentHandoffs`. The specialist handles the question end-to-end and returns the final response.
 - **Explicit registration** — Go has no auto-discovery: every agent and workflow is registered explicitly in `main()` via `agnt5.RegisterAgent`/`agnt5.RegisterWorkflow`.
 
+## Project structure
+
+```
+main.go                # entry point: builds the model/agents, registers components, runs the worker
+src/tutor_agent/        # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  agents.go              # the triage, history, and math tutor agents
+  workflows.go           # the tutor chat workflow
+```
+
 ## Setup
 
 1. Install Go 1.23+:

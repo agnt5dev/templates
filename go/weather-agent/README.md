@@ -14,6 +14,18 @@ An intelligent weather assistant that answers natural language queries using rea
 - **Two workflows, one helper** — `get_weather` returns structured `WeatherData` directly; `get_weather_interactive` routes the same request through the agent for a natural-language reply, keeping conversation history in session-scoped memory (`ctx.Memory().Conversation()`).
 - **Explicit registration** — Go has no auto-discovery: every function, agent, and workflow is registered explicitly in `main()`.
 
+## Project structure
+
+```
+main.go                 # entry point: builds the model/agent, registers components, runs the worker
+src/weather-agent/       # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  models.go               # WeatherData and service constants
+  functions.go            # fetchWeatherData helper + the get_weather_data function
+  tools.go                # the agent-facing weather tool
+  agents.go               # the weather agent
+  workflows.go            # get_weather and get_weather_interactive
+```
+
 ## Setup
 
 1. Install Go 1.23+:

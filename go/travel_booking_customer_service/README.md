@@ -14,6 +14,16 @@ A conversational travel agent that searches real flights and hotels, builds itin
 - **Durable conversation history** — The workflow reads/writes session-scoped memory (`ctx.Memory().Conversation()`) around each agent call, so history survives worker restarts without a separate entity.
 - **Generous turn budget** — Trip-planning requests call all three tools in one turn before answering, so the agent is configured with `WithAgentMaxTurns(8)` rather than the SDK's default of `1`.
 
+## Project structure
+
+```
+main.go                                   # entry point: builds the model/agent, registers components, runs the worker
+src/travel_booking_customer_service/       # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  tools.go                                  # search_flights, search_hotels, create_itinerary
+  agents.go                                 # the travel booking agent
+  workflows.go                              # the chat workflow
+```
+
 ## Setup
 
 1. Install Go 1.23+:

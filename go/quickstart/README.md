@@ -14,6 +14,17 @@ A fan-out workflow that summarizes the top Hacker News stories, with every step 
 - **Fan-out / fan-in** — `fetch_stories` and `summarize_stories` each spawn one goroutine per story and wait for all of them, wrapped in a single `agnt5.Step` so the whole group checkpoints together (the Go SDK has no per-item fan-out helper yet, unlike Python's `ctx.parallel()`/TypeScript's `Promise.all`), before `assemble_digest` combines the results.
 - **Explicit registration** — Unlike Python's `auto_register=True` or TypeScript's import-side-effect registration, Go has no auto-discovery: every function and workflow is registered explicitly in `main()` via `agnt5.RegisterFunction`/`agnt5.RegisterWorkflow`.
 
+## Project structure
+
+```
+main.go              # entry point: builds the model/agent, registers components, runs the worker
+src/quickstart/       # implementation package (mirrors Python's src/<package>/, TypeScript's src/)
+  functions.go        # fetch_top_ids, fetch_story, summarize, assemble_digest
+  workflows.go        # the digest workflow
+```
+
+`main.go` imports `src/quickstart` and calls its exported functions/types — Go has no package-private cross-file sharing the way a single flat directory would, so anything `main.go` needs (the `Summarizer` agent, the registered handlers) is exported with a capital letter.
+
 ## Setup
 
 1. Install Go 1.23+:
