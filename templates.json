@@ -54,6 +54,10 @@
         "typescript": {
           "latest": "v2.0.1",
           "versions": ["v2.0.0", "v2.0.1"]
+        },
+        "go": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
         }
       }
     },
