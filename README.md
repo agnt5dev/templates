@@ -19,7 +19,7 @@ This repo contains starter templates for **Python** and **TypeScript**. See the 
 ## Getting Started
 
 **Prerequisites:**
-- Python 3.12+ (for Python templates) and/or Node.js 22+ (for TypeScript templates)
+- Python 3.12+ (for Python templates), Node.js 22+ (for TypeScript templates), and/or Go 1.23+ (for Go templates)
 - [Docker](https://docs.docker.com/get-started/get-docker/)
 - AGNT5 CLI (see callout above)
 
