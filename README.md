@@ -48,14 +48,13 @@ agnt5 run <workflow-name> --input '{"key": "value"}'
 
 | Template | Languages | Description |
 |----------|-----------|-------------|
-| `quickstart` | Python, TypeScript | Fan-out workflow that summarizes the top Hacker News stories |
-| `deep-wiki-agent` | Python | Durable investigator agent with DeepWiki MCP, human review, and a checkpointed save step |
-| `weather-agent` | Python | Weather agent with OpenWeatherMap integration |
-| `code_reviewer` | Python | AI-powered code review with GitHub and Jira integration |
-| `coding_agent` | Python | Autonomous TDD agent running in an E2B sandbox |
-| `customer_service` | Python | Multi-agent travel booking assistant |
-| `deep_research` | Python | Autonomous research agent with Wikipedia sourcing |
-| `tutor_agent` | Python | Multi-subject tutor with specialized handoffs |
+| `quickstart` | Python, TypeScript, Go | Fan-out workflow that summarizes the top Hacker News stories |
+| `weather-agent` | Python, TypeScript, Go | Weather agent with Open-Meteo integration |
+| `code_reviewer` | Python, TypeScript, Go | AI-powered code review with GitHub and Jira/Linear integration |
+| `coding_agent` | Python, TypeScript, Go | Autonomous TDD agent running in an E2B sandbox |
+| `travel_booking_customer_service` | Python, TypeScript, Go | Multi-agent travel booking assistant |
+| `tutor_agent` | Python, TypeScript, Go | Multi-subject tutor with specialized handoffs |
+| `hitl_deep_research` | Python, TypeScript, Go | Research pipeline with a human-in-the-loop approval gate |
 
 See [`templates.json`](templates.json) for the authoritative manifest.
 
