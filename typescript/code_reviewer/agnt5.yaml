@@ -1,6 +1,6 @@
 name: code-reviewer
 language: typescript
-language_version: "22"
+language_version: "26"
 environment: development
 variables: {}
 worker:

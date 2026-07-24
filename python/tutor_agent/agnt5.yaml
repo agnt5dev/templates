@@ -1,6 +1,6 @@
 name: agnt5-tutor-agent
 language: python
-language_version: "3.11"
+language_version: "3.14"
 environment: development
 variables: {}
 worker:

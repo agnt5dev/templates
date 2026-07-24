@@ -1,6 +1,6 @@
 project: nF5DMhV94WfX6a5vWLxNMX
 name: code-reviewer
 language: python
-language_version: "3.12"
+language_version: "3.14"
 environment: development
 
