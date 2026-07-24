@@ -1,0 +1,12 @@
+name: code-reviewer
+language: go
+language_version: "1.23"
+environment: dev
+
+worker:
+  command: "go run ."
+
+deploy:
+  resources:
+    memory: 512Mi
+    cpu: 500m
