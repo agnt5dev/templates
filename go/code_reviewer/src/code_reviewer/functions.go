@@ -176,18 +176,26 @@ func securityReviewNode(ctx *agnt5.Context, model agnt5.LanguageModel, files []P
 		return SecurityReview{Findings: []Finding{}, OverallRisk: "low", Summary: "No diffs available to review."}, nil
 	}
 
-	const maxFiles = 15 // cap to avoid token limits
-	if len(reviewable) > maxFiles {
-		reviewable = reviewable[:maxFiles]
-	}
-
-	var diffSections []string
-	for _, f := range reviewable {
-		diffSections = append(diffSections, fmt.Sprintf("### %s (+%d -%d)\n```\n%s\n```", f.Filename, f.Additions, f.Deletions, f.Patch))
-	}
-
+	// Batched rather than truncated: dropping files past a cap while still
+	// reporting overall_risk for the whole PR rates a vulnerability in a later
+	// file as low risk.
+	const filesPerBatch = 15
 	techStr := fmt.Sprintf("Languages: %s | Frameworks: %s", strings.Join(stack.Languages, ", "), strings.Join(stack.Frameworks, ", "))
-	userPrompt := fmt.Sprintf(`Perform a security review of this pull request.
+
+	merged := SecurityReview{Findings: []Finding{}, OverallRisk: "low"}
+	var summaries []string
+	var failedBatches int
+
+	for start := 0; start < len(reviewable); start += filesPerBatch {
+		end := start + filesPerBatch
+		if end > len(reviewable) {
+			end = len(reviewable)
+		}
+		var diffSections []string
+		for _, f := range reviewable[start:end] {
+			diffSections = append(diffSections, fmt.Sprintf("### %s (+%d -%d)\n```\n%s\n```", f.Filename, f.Additions, f.Deletions, f.Patch))
+		}
+		userPrompt := fmt.Sprintf(`Perform a security review of this pull request.
 
 PR Title: %s
 Repo: %s
@@ -197,13 +205,48 @@ Changed Files and Diffs:
 %s
 
 Focus exclusively on security. Return findings (empty list if no security issues) with overall_risk and summary.`,
-		pr.Title, pr.Repo, techStr, strings.Join(diffSections, "\n\n"))
+			pr.Title, pr.Repo, techStr, strings.Join(diffSections, "\n\n"))
 
-	review, err := GenerateStructured[SecurityReview](ctx, model, securityReviewerSystemPrompt, userPrompt)
-	if err != nil {
-		ctx.Logger().Warn("No structured output for security review, using empty result", "error", err)
-		return SecurityReview{Findings: []Finding{}, OverallRisk: "low", Summary: "Structured output unavailable for security review."}, nil
+		review, err := GenerateStructured[SecurityReview](ctx, model, securityReviewerSystemPrompt, userPrompt)
+		if err != nil {
+			ctx.Logger().Warn("No structured output for security review batch", "error", err, "files", end-start)
+			failedBatches++
+			continue
+		}
+		merged.Findings = append(merged.Findings, review.Findings...)
+		if riskRank(review.OverallRisk) > riskRank(merged.OverallRisk) {
+			merged.OverallRisk = review.OverallRisk
+		}
+		if s := strings.TrimSpace(review.Summary); s != "" {
+			summaries = append(summaries, s)
+		}
 	}
-	ctx.Logger().Info("Security review done", "findings", len(review.Findings), "risk", review.OverallRisk)
-	return review, nil
+
+	if failedBatches > 0 {
+		// Say so rather than passing a partial pass off as a clean one.
+		summaries = append(summaries, fmt.Sprintf("Partial review: %d of %d batches returned no structured output.",
+			failedBatches, (len(reviewable)+filesPerBatch-1)/filesPerBatch))
+	}
+	merged.Summary = strings.Join(summaries, " ")
+	if merged.Summary == "" {
+		merged.Summary = "Structured output unavailable for security review."
+	}
+	ctx.Logger().Info("Security review done", "findings", len(merged.Findings), "risk", merged.OverallRisk, "files", len(reviewable))
+	return merged, nil
+}
+
+// riskRank orders the risk levels so batches can be combined by taking the
+// highest one seen.
+func riskRank(risk string) int {
+	switch strings.ToLower(strings.TrimSpace(risk)) {
+	case "critical":
+		return 4
+	case "high":
+		return 3
+	case "medium":
+		return 2
+	case "low":
+		return 1
+	}
+	return 0
 }

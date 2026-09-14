@@ -6,6 +6,8 @@ package coding_agent
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/agnt5dev/sdk-go/agnt5"
@@ -24,7 +26,9 @@ Task: %s
 
 Produce:
 1. A development plan describing the module's public functions/classes, their signatures, parameters, return types, and behavior (including edge cases and error handling).
-2. A test plan describing the pytest test cases that verify every behavior in the development plan, using the exact same function/class names and signatures.`, taskDescription)
+2. A test plan describing the pytest test cases that verify every behavior in the development plan, using the exact same function/class names and signatures.
+
+The implementation is always a single file, main.py, so tests import it with `+"`from main import <name>`"+`. Do not name any other module.`, taskDescription)
 }
 
 const coderSystemPrompt = `You are an Expert Python Coder Agent specialized in implementing code from development plans. Your core identity is absolute precision and plan adherence — implement exactly what the plan specifies, no more, no less.
@@ -57,7 +61,9 @@ Task: %s
 Test Plan:
 %s
 
-Write a complete test.py file that imports from main.py and tests every behavior in the test plan, including edge cases and error conditions.`, taskDescription, testPlan)
+Write a complete test.py file that tests every behavior in the test plan, including edge cases and error conditions.
+
+The code under test is in main.py: import it with `+"`from main import <name>`"+`, never from any other module name, even if the plan mentions one.`, taskDescription, testPlan)
 }
 
 const markdownSystemPrompt = `You are a Technical Documentation Specialist with expertise in code analysis and technical communication. Transform programming tasks and their implementations into clear, professional markdown documentation.`
@@ -77,7 +83,9 @@ const errorAnalyzerSystemPrompt = `You are an Expert Error Analysis Specialist w
 
 Parse error logs systematically, map failures to specific code locations and logic, and distinguish between syntax errors, logic errors, and algorithmic flaws.
 
-Respond with a JSON object matching this shape: {"failed_tests": [string], "root_causes": [string], "suggested_fixes": [string], "analysis_summary": string}`
+Recognize when a test is wrong rather than the code: the tests were generated before any code and can contain mistaken expected values.
+
+Respond with a JSON object matching this shape: {"failed_tests": [string], "invalid_tests": [{"test_name": string, "reason": string, "correct_expectation": string}], "root_causes": [string], "suggested_fixes": [string], "analysis_summary": string}`
 
 func errorAnalyzerUserPrompt(taskDescription, devPlan, generatedCode, generatedTests, errorLogs string) string {
 	return fmt.Sprintf(`MISSION: Analyze test failures and provide comprehensive error analysis.
@@ -96,7 +104,15 @@ Test Suite:
 Error Logs:
 %s
 
-Identify which tests failed and why, the root causes, and specific suggested fixes.`, taskDescription, devPlan, generatedCode, generatedTests, errorLogs)
+STEP 0 — check each failing test against the task before blaming the code:
+- Work out the expected value from the task's own rules, not from what the code does.
+- If the task's rules produce a different value than the test expects, the test is wrong: record it in "invalid_tests" with the reason and the value the task requires.
+- Only flag a test when the task settles the answer. If the task is ambiguous or silent, assume the test is right and the code is wrong.
+- Never flag a test merely because the code disagrees with it — the code may be the thing that is wrong.
+- A test can be invalid while the code is also wrong: report both.
+- "invalid_tests" must always be present; use [] when every failing test is consistent with the task.
+
+Then identify which tests failed and why, the root causes, and specific suggested fixes.`, taskDescription, devPlan, generatedCode, generatedTests, errorLogs)
 }
 
 const codeFixerSystemPrompt = `You are an elite Python debugging specialist. Your sole mission: analyze failing code and produce a corrected version that passes ALL tests.
@@ -285,16 +301,82 @@ func errorAnalyzerNode(ctx *agnt5.Context, model agnt5.LanguageModel, taskDescri
 	return analysis, nil
 }
 
+const testRepairSystemPrompt = `You are a meticulous Python Test Engineer. You correct mistaken expectations in an existing pytest suite.
+
+The suite was generated before the implementation, and an error analysis has identified specific tests whose expected values contradict the task.
+
+Your rules:
+- Change ONLY the tests you are given, and within them only what makes the expectation match the task
+- Keep every other test exactly as it is, character for character
+- Never delete, skip, xfail or weaken a test; never loosen an assertion to make it pass (no wider tolerances, no removed checks)
+- Keep the imports, fixtures and structure of the file
+- If a listed test's correct value is not settled by the task, leave that test unchanged
+
+Respond with a JSON object matching this shape: {"code": string}`
+
+func testRepairUserPrompt(taskDescription, generatedTests, invalidTests string) string {
+	return fmt.Sprintf(`MISSION: Correct the listed tests so their expectations match the task.
+
+Original Task:
+%s
+
+Current Test Suite:
+%s
+
+Tests With Invalid Expectations:
+%s
+
+1. For each listed test, recompute the expected value from the Original Task and update only that expectation.
+2. Leave every unlisted test exactly as it is.
+3. Do not remove or weaken any test.
+
+Return the complete corrected test file.`, taskDescription, generatedTests, invalidTests)
+}
+
+// testRepairNode corrects the tests the error analysis found to contradict the
+// task. A rejected repair keeps the original tests: a wrong repair is worse
+// than none.
+func testRepairNode(ctx *agnt5.Context, model agnt5.LanguageModel, taskDescription, generatedTests string, invalidTests []InvalidTest) (TestRepair, error) {
+	targets := map[string]bool{}
+	var names, listing []string
+	for _, t := range invalidTests {
+		name := baseTestName(t.TestName)
+		targets[name] = true
+		names = append(names, name)
+		listing = append(listing, fmt.Sprintf("- `%s`: %s Correct expectation: %s", t.TestName, t.Reason, t.CorrectExpectation))
+	}
+	sort.Strings(names)
+	ctx.Logger().Info("Repairing tests with invalid expectations", "tests", names)
+
+	repaired, err := GenerateStructured[GeneratedCode](ctx, model, testRepairSystemPrompt,
+		testRepairUserPrompt(taskDescription, generatedTests, strings.Join(listing, "\n")))
+	if err != nil {
+		ctx.Logger().Error("Test repair failed", "error", err)
+		return TestRepair{}, err
+	}
+
+	candidate := cleanCode(repaired.Code)
+	accepted, why, changed := checkTestRepair(generatedTests, candidate, targets)
+	if !accepted {
+		ctx.Logger().Warn("Test repair rejected, keeping the original tests", "reason", why)
+		return TestRepair{Accepted: false, Code: generatedTests, Reason: why}, nil
+	}
+	ctx.Logger().Info("Repaired tests", "tests", changed)
+	return TestRepair{Accepted: true, Code: candidate, Repaired: changed}, nil
+}
+
 func finalResponseNode(ctx *agnt5.Context, model agnt5.LanguageModel, taskDescription, generatedCode string) (FinalResponse, error) {
 	ctx.Logger().Info("Generating documentation")
 
 	temperature := 0.0
+	maxTokens := maxOutputTokens
 	resp, err := model.Generate(ctx, agnt5.GenerateRequest{
 		Messages: []agnt5.Message{
 			{Role: agnt5.MessageRoleSystem, Content: markdownSystemPrompt},
 			{Role: agnt5.MessageRoleUser, Content: markdownUserPrompt(taskDescription, generatedCode)},
 		},
 		Temperature: &temperature,
+		MaxTokens:   &maxTokens,
 	})
 	if err != nil {
 		ctx.Logger().Error("Documentation generation failed", "error", err)

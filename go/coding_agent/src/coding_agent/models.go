@@ -13,12 +13,30 @@ type GeneratedCode struct {
 	Code string `json:"code"`
 }
 
+// InvalidTest is a failing test whose expected value contradicts the task —
+// the test is wrong, not the code.
+type InvalidTest struct {
+	TestName           string `json:"test_name"`
+	Reason             string `json:"reason"`
+	CorrectExpectation string `json:"correct_expectation"`
+}
+
 // ErrorAnalysis is the structured result of analyzing a failing test run.
 type ErrorAnalysis struct {
-	FailedTests     []string `json:"failed_tests"`
-	RootCauses      []string `json:"root_causes"`
-	SuggestedFixes  []string `json:"suggested_fixes"`
-	AnalysisSummary string   `json:"analysis_summary"`
+	FailedTests     []string      `json:"failed_tests"`
+	InvalidTests    []InvalidTest `json:"invalid_tests"`
+	RootCauses      []string      `json:"root_causes"`
+	SuggestedFixes  []string      `json:"suggested_fixes"`
+	AnalysisSummary string        `json:"analysis_summary"`
+}
+
+// TestRepair is the outcome of correcting tests the analysis flagged as
+// invalid. A rejected repair keeps the original suite in Code.
+type TestRepair struct {
+	Accepted bool     `json:"accepted"`
+	Code     string   `json:"code"`
+	Repaired []string `json:"repaired"`
+	Reason   string   `json:"reason"`
 }
 
 // SyncResult is the result of syncing generated code to the sandbox.
@@ -51,4 +69,7 @@ type WorkflowResult struct {
 	Documentation string `json:"documentation,omitempty"`
 	Error         string `json:"error,omitempty"`
 	ErrorLogs     string `json:"error_logs,omitempty"`
+	// TestsRepaired names generated tests whose expectations were corrected
+	// during the run, so a pass that needed them changed is visible.
+	TestsRepaired []string `json:"tests_repaired,omitempty"`
 }

@@ -29,7 +29,7 @@ func main() {
 
 	model := agnt5.NewGroqModel(agnt5.OpenAIConfig{
 		APIKey: cfg.GroqAPIKey,
-		Model:  "meta-llama/llama-4-scout-17b-16e-instruct",
+		Model:  "qwen/qwen3.8-27b",
 	})
 	e2b := coding_agent.NewE2BClient(cfg.E2BAPIKey)
 

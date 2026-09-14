@@ -1,6 +1,6 @@
 {
   "name": "code-reviewer",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "type": "module",
   "private": true,
   "engines": {
@@ -10,7 +10,7 @@
     "start": "npx tsx app.ts"
   },
   "dependencies": {
-    "@agnt5/sdk": "^0.6.5",
+    "@agnt5/sdk": "^0.10.0",
     "dotenv": "^16.0.0"
   },
   "devDependencies": {

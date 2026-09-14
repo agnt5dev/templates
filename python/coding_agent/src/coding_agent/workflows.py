@@ -11,8 +11,16 @@ from coding_agent.functions import (
     install_deps_node,
     code_executor_node,
     error_analyzer_node,
+    test_repair_node,
     final_response_node,
+    _base_test_name,
 )
+
+# Generated tests are written before any code and can be wrong. The error
+# analysis may flag such tests, and the workflow corrects them — but at most
+# this many times per run, so it cannot keep rewriting tests to escape a
+# failing implementation.
+MAX_TEST_REPAIRS = 2
 
 
 @workflow(name="coding_agent_workflow")
@@ -36,6 +44,8 @@ async def coding_agent_workflow(
     ctx.state.set("task_description", task_description)
     ctx.state.set("retries", 0)
     ctx.state.set("execution_status", "initial")
+    ctx.state.set("test_repairs", 0)
+    ctx.state.set("tests_repaired", [])
 
     ctx.logger.info(f"📋 Task: {task_description[:100]}...")
     ctx.logger.info(f"🔁 Max retries: {max_retries}")
@@ -93,22 +103,60 @@ async def coding_agent_workflow(
                     error_logs=ctx.state.get("error_logs", ""),
                 )
 
-                ctx.state.set("error_analysis", error_analysis)
+                # Workflow state is persisted as JSON, so store the plain dict;
+                # the model instance itself goes on to code_generator_node below.
+                ctx.state.set("error_analysis", error_analysis.model_dump())
                 ctx.logger.info(f"✅ Analysis complete: {error_analysis.analysis_summary[:100]}...")
 
-                code_result = await ctx.step(
-                    code_generator_node,
-                    task_description=task_description,
-                    dev_plan=ctx.state.get("dev_plan"),
-                    execution_status=execution_status,
-                    generated_code=ctx.state.get("generated_code"),
-                    generated_tests=ctx.state.get("generated_tests"),
-                    error_logs=ctx.state.get("error_logs", ""),
-                    error_analysis=error_analysis,
-                )
-
-                generated_code = code_result.code
                 generated_tests = ctx.state.get("generated_tests")
+                analysis_for_fixer = error_analysis.model_dump()
+                only_test_failures = False
+
+                # Some failures may be the tests' fault, not the code's. Correct
+                # those tests first, so the fixer isn't pushed toward a wrong value.
+                test_repairs = ctx.state.get("test_repairs", 0)
+                if error_analysis.invalid_tests and test_repairs < MAX_TEST_REPAIRS:
+                    ctx.logger.info("\n🩹 Correcting tests that contradict the task")
+                    repair = await ctx.step(
+                        test_repair_node,
+                        task_description=task_description,
+                        generated_tests=generated_tests,
+                        invalid_tests=[t.model_dump() for t in error_analysis.invalid_tests],
+                    )
+                    ctx.state.set("test_repairs", test_repairs + 1)
+                    if repair.accepted:
+                        generated_tests = repair.code
+                        repaired_so_far = set(ctx.state.get("tests_repaired", []))
+                        ctx.state.set("tests_repaired", sorted(repaired_so_far | set(repair.repaired)))
+                        remaining = [
+                            t for t in error_analysis.failed_tests
+                            if _base_test_name(t) not in repair.repaired
+                        ]
+                        analysis_for_fixer["failed_tests"] = remaining
+                        analysis_for_fixer["invalid_tests"] = []
+                        only_test_failures = not remaining
+                elif error_analysis.invalid_tests:
+                    ctx.logger.warning(
+                        f"⚠️ Test repair limit ({MAX_TEST_REPAIRS}) reached; treating failures as code bugs"
+                    )
+
+                if only_test_failures:
+                    # Every failure came from a test that is now corrected: the
+                    # code may already be right, so re-run before changing it.
+                    ctx.logger.info("🔁 All failures were in the tests; re-running without changing the code")
+                    generated_code = ctx.state.get("generated_code")
+                else:
+                    code_result = await ctx.step(
+                        code_generator_node,
+                        task_description=task_description,
+                        dev_plan=ctx.state.get("dev_plan"),
+                        execution_status=execution_status,
+                        generated_code=ctx.state.get("generated_code"),
+                        generated_tests=generated_tests,
+                        error_logs=ctx.state.get("error_logs", ""),
+                        error_analysis=analysis_for_fixer,
+                    )
+                    generated_code = code_result.code
 
             ctx.state.set("generated_code", generated_code)
             ctx.state.set("generated_tests", generated_tests)
@@ -160,6 +208,10 @@ async def coding_agent_workflow(
 
             if next_action == "success":
                 ctx.logger.info("✅ SUCCESS! All tests passed")
+                if ctx.state.get("tests_repaired"):
+                    ctx.logger.warning(
+                        f"⚠️ Passed after correcting generated test(s): {ctx.state.get('tests_repaired')}"
+                    )
                 ctx.logger.info("\n📍 STEP 7: DOCUMENTATION")
 
                 final_result = await ctx.step(
@@ -181,6 +233,7 @@ async def coding_agent_workflow(
                     sandbox_id=sandbox_id,
                     documentation=final_result.markdown_content,
                     error=None,
+                    tests_repaired=ctx.state.get("tests_repaired", []),
                 )
 
             else:
@@ -201,7 +254,10 @@ async def coding_agent_workflow(
                         error_logs=error_logs,
                         code=generated_code,
                         tests=generated_tests,
-                        sandbox_id=sandbox_id,
+                        # From state: the local is only bound once a sync has
+                        # succeeded, and every attempt may have failed first.
+                        sandbox_id=ctx.state.get("sandbox_id"),
+                        tests_repaired=ctx.state.get("tests_repaired", []),
                     )
 
                 ctx.logger.warning(f"⚠️ Retrying ({retries}/{max_retries}) — {status}")
@@ -221,6 +277,7 @@ async def coding_agent_workflow(
             code=ctx.state.get("generated_code"),
             tests=ctx.state.get("generated_tests"),
             sandbox_id=ctx.state.get("sandbox_id"),
+            tests_repaired=ctx.state.get("tests_repaired", []),
         )
 
     ctx.logger.error("❌ Unexpected workflow termination")
@@ -232,4 +289,5 @@ async def coding_agent_workflow(
         code=ctx.state.get("generated_code"),
         tests=ctx.state.get("generated_tests"),
         sandbox_id=ctx.state.get("sandbox_id"),
+        tests_repaired=ctx.state.get("tests_repaired", []),
     )

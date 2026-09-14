@@ -48,9 +48,12 @@ func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.La
 	// helper yet — the whole pair is checkpointed together.
 	ctx.Logger().Info("Step 1/4: Context Builder Agent + structured PR fetch (parallel)")
 
+	// Exported with JSON tags on purpose: a step result is serialized to its
+	// checkpoint, and unexported fields encode as {} — on replay the workflow
+	// would resume with an empty context and zero-value PR data.
 	type step1Result struct {
-		contextSummary string
-		prData         PRData
+		ContextSummary string `json:"context_summary"`
+		PRData         PRData `json:"pr_data"`
 	}
 	step1, err := agnt5.Step(ctx, "build_context_and_fetch_pr", func(context.Context) (step1Result, error) {
 		var contextSummary string
@@ -85,12 +88,12 @@ func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.La
 		if fetchErr != nil {
 			return step1Result{}, fetchErr
 		}
-		return step1Result{contextSummary: contextSummary, prData: prData}, nil
+		return step1Result{ContextSummary: contextSummary, PRData: prData}, nil
 	})
 	if err != nil {
 		return CodeReviewOutput{}, err
 	}
-	contextSummary, prData := step1.contextSummary, step1.prData
+	contextSummary, prData := step1.ContextSummary, step1.PRData
 
 	fileCount := prData.ChangedFiles
 	ctx.Logger().Info("Context built", "pr_number", prData.PRNumber, "files", fileCount)
@@ -120,9 +123,11 @@ func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.La
 
 	prSum := prSummary{Title: prData.Title, Description: prData.Description, Repo: prData.Repo}
 
+	// Exported for the same reason as step1Result: unexported fields do not
+	// survive the checkpoint round-trip.
 	type step3Result struct {
-		fileReviews    []FileReview
-		securityReview SecurityReview
+		FileReviews    []FileReview   `json:"file_reviews"`
+		SecurityReview SecurityReview `json:"security_review"`
 	}
 	step3, err := agnt5.Step(ctx, "review_files_and_security", func(context.Context) (step3Result, error) {
 		fileReviews := make([]FileReview, len(reviewableFiles))
@@ -152,12 +157,12 @@ func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.La
 		if securityErr != nil {
 			return step3Result{}, securityErr
 		}
-		return step3Result{fileReviews: fileReviews, securityReview: securityReview}, nil
+		return step3Result{FileReviews: fileReviews, SecurityReview: securityReview}, nil
 	})
 	if err != nil {
 		return CodeReviewOutput{}, err
 	}
-	fileReviews, securityReview := step3.fileReviews, step3.securityReview
+	fileReviews, securityReview := step3.FileReviews, step3.SecurityReview
 
 	severityCounts := map[string]int{"critical": 0, "major": 0, "minor": 0, "nitpick": 0}
 	totalFindings := 0

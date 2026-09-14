@@ -16,8 +16,18 @@ Starter templates for building durable AI agents with the [AGNT5 TypeScript SDK]
 | Template | Description |
 |----------|-------------|
 | [`quickstart`](quickstart/) | Fan-out workflow that summarizes the top Hacker News stories |
+| [`weather-agent`](weather-agent/) | Weather agent with Open-Meteo integration |
+| [`code_reviewer`](code_reviewer/) | AI-powered code review with GitHub and Jira/Linear integration |
+| [`coding_agent`](coding_agent/) | Autonomous TDD agent running in an E2B sandbox |
+| [`travel_booking_customer_service`](travel_booking_customer_service/) | Multi-agent travel booking assistant |
+| [`tutor_agent`](tutor_agent/) | Multi-subject tutor with specialized handoffs |
+| [`hitl_deep_research`](hitl_deep_research/) | Research pipeline with a human-in-the-loop approval gate |
 
-Each template directory has its own README with template-specific setup.
+Not published — internal samples that the sync skips:
+
+| Template | Description |
+|----------|-------------|
+| [`llm-playground`](llm-playground/) | Model and provider checks |
 
 ## Running a template
 

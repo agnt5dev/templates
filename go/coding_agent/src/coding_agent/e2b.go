@@ -5,31 +5,45 @@
 // not E2B's — so this implements a small client directly against E2B's
 // public HTTP API using net/http.
 //
-// Sandbox lifecycle (create/kill) goes through E2B's documented control-plane
-// API at https://api.e2b.dev. Command execution and file I/O go through the
-// sandbox's own envd HTTP surface, exposed at https://{port}-{sandboxID}.e2b.dev.
-// envd's real interface is richer than shown here (it supports streaming
-// process output); this client implements a simplified synchronous
-// request/response wrapper sufficient for "write files, run pytest, read the
-// result" — verify against https://e2b.dev/docs and adjust endpoints if E2B
-// has changed its API since this was written.
+// Sandbox lifecycle (create/kill) goes through E2B's control-plane API at
+// https://api.e2b.dev. Files and commands go through the sandbox's own agent,
+// envd, at https://{port}-{sandboxID}.e2b.app:
+//
+//   - files: POST/GET /files?path=…&username=user (multipart upload)
+//   - commands: the Connect RPC process.Process/Start, which streams the
+//     process's output and ends with its exit code (see runCommand)
+//
+// Every envd call runs as the sandbox's default user "user", so relative
+// paths (main.py, test.py) and command working directories both resolve to
+// /home/user. Sandboxes created with secure access also need an
+// X-Access-Token header; the default ones used here do not.
 package coding_agent
 
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const (
 	e2bControlPlaneURL = "https://api.e2b.dev"
-	e2bDefaultTemplate = "base"
+	// code-interpreter-v1 is the image the Python and TypeScript templates get
+	// from E2B's code-interpreter SDK. It ships pytest; "base" does not, so
+	// every test run there failed with "pytest: command not found".
+	e2bDefaultTemplate = "code-interpreter-v1"
 	e2bEnvdPort        = 49983
+	e2bSandboxDomain   = "e2b.app"
+	e2bSandboxUser     = "user"
+	e2bSandboxHome     = "/home/user"
 )
 
 type e2bClient struct {
@@ -42,7 +56,17 @@ func NewE2BClient(apiKey string) *e2bClient {
 }
 
 func (c *e2bClient) sandboxHost(sandboxID string) string {
-	return fmt.Sprintf("https://%d-%s.e2b.dev", e2bEnvdPort, sandboxID)
+	return fmt.Sprintf("https://%d-%s.%s", e2bEnvdPort, sandboxID, e2bSandboxDomain)
+}
+
+// setEnvdUser makes envd act as the sandbox's default user. Without it, files
+// and commands can resolve against different users' home directories.
+func setEnvdUser(req *http.Request) {
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(e2bSandboxUser+":")))
+}
+
+func envdFilesURL(host, path string) string {
+	return host + "/files?" + url.Values{"path": {path}, "username": {e2bSandboxUser}}.Encode()
 }
 
 // createSandbox creates a new E2B sandbox and returns its ID.
@@ -112,11 +136,12 @@ func (c *e2bClient) writeFile(ctx context.Context, sandboxID, path, content stri
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.sandboxHost(sandboxID)+"/files?path="+path, &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, envdFilesURL(c.sandboxHost(sandboxID), path), &buf)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	setEnvdUser(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -132,10 +157,11 @@ func (c *e2bClient) writeFile(ctx context.Context, sandboxID, path, content stri
 
 // readFile reads a file from the sandbox filesystem.
 func (c *e2bClient) readFile(ctx context.Context, sandboxID, path string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.sandboxHost(sandboxID)+"/files?path="+path, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, envdFilesURL(c.sandboxHost(sandboxID), path), nil)
 	if err != nil {
 		return "", err
 	}
+	setEnvdUser(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", err
@@ -156,32 +182,104 @@ type e2bCommandResult struct {
 }
 
 // runCommand runs a shell command in the sandbox and waits for it to finish.
+//
+// envd has no plain request/response endpoint for this. process.Process/Start
+// is a Connect server-streaming RPC: the request is one enveloped JSON message,
+// and the reply is a sequence of them — a start event, stdout/stderr chunks
+// (base64, which encoding/json decodes into []byte), and an end event with
+// the exit code — followed by an end-of-stream frame. Each envelope is a flags
+// byte, a big-endian uint32 length, then the JSON payload.
 func (c *e2bClient) runCommand(ctx context.Context, sandboxID, command string, timeout time.Duration) (e2bCommandResult, error) {
-	body, _ := json.Marshal(map[string]any{
-		"cmd":     "sh",
-		"args":    []string{"-c", command},
-		"timeout": int(timeout.Seconds()),
+	msg, _ := json.Marshal(map[string]any{
+		"process": map[string]any{
+			"cmd":  "/bin/bash",
+			"args": []string{"-l", "-c", command},
+			"cwd":  e2bSandboxHome,
+		},
 	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.sandboxHost(sandboxID)+"/process", bytes.NewReader(body))
+	var body bytes.Buffer
+	body.WriteByte(0)
+	_ = binary.Write(&body, binary.BigEndian, uint32(len(msg)))
+	body.Write(msg)
+
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(runCtx, http.MethodPost, c.sandboxHost(sandboxID)+"/process.Process/Start", &body)
 	if err != nil {
 		return e2bCommandResult{}, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/connect+json")
+	req.Header.Set("Connect-Protocol-Version", "1")
+	setEnvdUser(req)
 
-	client := &http.Client{Timeout: timeout + 10*time.Second}
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{Timeout: timeout + 10*time.Second}).Do(req)
 	if err != nil {
 		return e2bCommandResult{}, err
 	}
 	defer resp.Body.Close()
-
-	var result e2bCommandResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		body, _ := io.ReadAll(resp.Body)
-		return e2bCommandResult{}, fmt.Errorf("unexpected response from sandbox process endpoint: %s", body)
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return e2bCommandResult{}, fmt.Errorf("sandbox process start failed (HTTP %d): %s", resp.StatusCode, respBody)
 	}
-	result.Success = result.ExitCode == 0
-	return result, nil
+
+	var stdout, stderr bytes.Buffer
+	exitCode, ended := 0, false
+	header := make([]byte, 5)
+	for {
+		if _, err := io.ReadFull(resp.Body, header); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return e2bCommandResult{}, fmt.Errorf("reading sandbox process stream: %w", err)
+		}
+		payload := make([]byte, binary.BigEndian.Uint32(header[1:]))
+		if _, err := io.ReadFull(resp.Body, payload); err != nil {
+			return e2bCommandResult{}, fmt.Errorf("reading sandbox process stream: %w", err)
+		}
+		if header[0]&0x02 != 0 {
+			// End of stream. A failed RPC reports its error here.
+			var eos struct {
+				Error *struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if json.Unmarshal(payload, &eos) == nil && eos.Error != nil {
+				return e2bCommandResult{}, fmt.Errorf("sandbox process failed: %s: %s", eos.Error.Code, eos.Error.Message)
+			}
+			break
+		}
+		var m struct {
+			Event struct {
+				Data *struct {
+					Stdout []byte `json:"stdout"`
+					Stderr []byte `json:"stderr"`
+				} `json:"data"`
+				End *struct {
+					ExitCode int `json:"exitCode"`
+				} `json:"end"`
+			} `json:"event"`
+		}
+		if err := json.Unmarshal(payload, &m); err != nil {
+			return e2bCommandResult{}, fmt.Errorf("decoding sandbox process event: %w", err)
+		}
+		if d := m.Event.Data; d != nil {
+			stdout.Write(d.Stdout)
+			stderr.Write(d.Stderr)
+		}
+		if e := m.Event.End; e != nil {
+			exitCode, ended = e.ExitCode, true
+		}
+	}
+	if !ended {
+		return e2bCommandResult{}, fmt.Errorf("sandbox process stream ended without an exit status")
+	}
+	return e2bCommandResult{
+		ExitCode: exitCode,
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
+		Success:  exitCode == 0,
+	}, nil
 }
 
 // listFiles lists files and directories at path in the sandbox.

@@ -7,11 +7,15 @@ package travel_booking_customer_service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/agnt5dev/sdk-go/agnt5"
@@ -42,20 +46,53 @@ func logError(c context.Context, msg string, kv ...any) {
 	slog.ErrorContext(c, msg, kv...)
 }
 
+// redactAPIKey strips the credential from anything derived from the request
+// URL. Go wraps transport failures with the full URL, and these errors are
+// logged and handed back to the agent, so an unredacted one puts SERPAPI_KEY
+// into traces and model-visible output.
+func redactAPIKey(err error, key string) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if key != "" {
+		msg = strings.ReplaceAll(msg, key, "REDACTED")
+	}
+	msg = apiKeyQueryPattern.ReplaceAllString(msg, "api_key=REDACTED")
+	return errors.New(msg)
+}
+
+var apiKeyQueryPattern = regexp.MustCompile(`api_key=[^&\s"]*`)
+
 func serpAPIGet(ctx context.Context, params url.Values) (map[string]any, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://serpapi.com/search?"+params.Encode(), nil)
 	if err != nil {
-		return nil, err
+		return nil, redactAPIKey(err, params.Get("api_key"))
 	}
 	resp, err := serpAPIClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, redactAPIKey(err, params.Get("api_key"))
 	}
 	defer resp.Body.Close()
 
+	// A non-2xx response carries a JSON error body. Decoding it as a normal
+	// result yields no flights or hotels and reports success, hiding an auth
+	// or rate-limit failure from the agent and the user.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		var payload map[string]any
+		detail := strings.TrimSpace(string(body))
+		if json.Unmarshal(body, &payload) == nil {
+			if e, ok := payload["error"].(string); ok && e != "" {
+				detail = e
+			}
+		}
+		return nil, redactAPIKey(fmt.Errorf("serpapi request failed with status %d: %s", resp.StatusCode, detail), params.Get("api_key"))
+	}
+
 	var data map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
+		return nil, redactAPIKey(err, params.Get("api_key"))
 	}
 	return data, nil
 }

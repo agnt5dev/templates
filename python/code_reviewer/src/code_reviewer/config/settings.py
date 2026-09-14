@@ -19,7 +19,7 @@ class Config:
         GITHUB_TOKEN=your_github_token_here (required)
         OPENAI_API_KEY=your_openai_key_here (required)
 
-        # At least one issue tracking system is required:
+        # Optional — set one only if you pass ticket_url to the workflow:
         LINEAR_API_TOKEN=your_linear_api_key_here (optional)
         # OR
         JIRA_EMAIL=your_jira_email_here (optional, requires all 3 Jira vars)
@@ -38,7 +38,11 @@ class Config:
     def validate(cls):
         """Validate that required API keys are present.
 
-        At least one issue tracking system (Jira or Linear) must be configured.
+        An issue tracker is optional: ticket_url is an optional workflow input
+        and a PR-only review is a legitimate use. When a ticket URL is supplied
+        without the matching credential, the fetch tool reports that instead --
+        refusing to start meant the whole worker died over a review that never
+        needed a ticket (AGNT5-1161).
         """
         missing = []
 
@@ -56,17 +60,6 @@ class Config:
             )
             raise ValueError(error_msg)
 
-        has_linear = bool(cls.LINEAR_KEY)
-        has_jira = all([cls.JIRA_EMAIL, cls.JIRA_DOMAIN, cls.JIRA_API_TOKEN])
-
-        if not has_linear and not has_jira:
-            error_msg = (
-                "At least one issue tracking system must be configured:\n"
-                "  - Linear: Provide LINEAR_API_TOKEN\n"
-                "  - Jira: Provide JIRA_EMAIL, JIRA_DOMAIN, and JIRA_API_TOKEN\n"
-                "Please update your .env file accordingly."
-            )
-            raise ValueError(error_msg)
 
 
 config = Config()

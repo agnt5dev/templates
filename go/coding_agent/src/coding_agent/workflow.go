@@ -13,11 +13,18 @@ package coding_agent
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/agnt5dev/sdk-go/agnt5"
 )
 
 const defaultMaxRetries = 15
+
+// Generated tests are written before any code and can be wrong. The error
+// analysis may flag such tests, and the workflow corrects them — but at most
+// this many times per run, so it cannot keep rewriting tests to escape a
+// failing implementation.
+const maxTestRepairs = 2
 
 type CodingAgentInput struct {
 	TaskDescription string `json:"task_description"`
@@ -48,7 +55,8 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 		sandboxID                     string
 		executionStatus               = "initial"
 		errorLogs                     string
-		errorAnalysis                 *ErrorAnalysis
+		testRepairs                   int
+		testsRepaired                 []string
 	)
 
 	for iteration := 0; iteration < maxRetries; iteration++ {
@@ -84,20 +92,60 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 			if err != nil {
 				return failedResult(ctx, taskDescription, iteration+1, generatedCode, generatedTests, sandboxID, fmt.Sprintf("Error analysis failed: %v", err)), nil
 			}
-			errorAnalysis = &analysis
 			ctx.Logger().Info("Analysis complete", "summary", truncate(analysis.AnalysisSummary, 100))
 
-			codeResult, err := agnt5.Step(ctx, "code_generator", func(context.Context) (GeneratedCode, error) {
-				return codeGeneratorNode(ctx, model, codeGenInput{
-					TaskDescription: taskDescription, DevPlan: plan.DevPlan,
-					ExecutionStatus: executionStatus, GeneratedCode: generatedCode,
-					GeneratedTests: generatedTests, ErrorLogs: errorLogs, ErrorAnalysis: errorAnalysis,
+			// Some failures may be the tests' fault, not the code's. Correct
+			// those tests first, so the fixer is not pushed toward a wrong value.
+			analysisForFixer := analysis
+			onlyTestFailures := false
+			switch {
+			case len(analysis.InvalidTests) > 0 && testRepairs < maxTestRepairs:
+				ctx.Logger().Info("Correcting tests that contradict the task")
+				repair, err := agnt5.Step(ctx, "test_repair", func(context.Context) (TestRepair, error) {
+					return testRepairNode(ctx, model, taskDescription, generatedTests, analysis.InvalidTests)
 				})
-			})
-			if err != nil {
-				return failedResult(ctx, taskDescription, iteration+1, generatedCode, generatedTests, sandboxID, fmt.Sprintf("Code fix failed: %v", err)), nil
+				if err != nil {
+					return failedResult(ctx, taskDescription, iteration+1, generatedCode, generatedTests, sandboxID, fmt.Sprintf("Test repair failed: %v", err)), nil
+				}
+				testRepairs++
+				if repair.Accepted {
+					generatedTests = repair.Code
+					testsRepaired = mergeSorted(testsRepaired, repair.Repaired)
+					repaired := map[string]bool{}
+					for _, name := range repair.Repaired {
+						repaired[name] = true
+					}
+					var remaining []string
+					for _, t := range analysis.FailedTests {
+						if !repaired[baseTestName(t)] {
+							remaining = append(remaining, t)
+						}
+					}
+					analysisForFixer.FailedTests = remaining
+					analysisForFixer.InvalidTests = nil
+					onlyTestFailures = len(remaining) == 0
+				}
+			case len(analysis.InvalidTests) > 0:
+				ctx.Logger().Warn("Test repair limit reached; treating failures as code bugs", "limit", maxTestRepairs)
 			}
-			generatedCode = codeResult.Code
+
+			if onlyTestFailures {
+				// Every failure came from a test that is now corrected: the code
+				// may already be right, so re-run before changing it.
+				ctx.Logger().Info("All failures were in the tests; re-running without changing the code")
+			} else {
+				codeResult, err := agnt5.Step(ctx, "code_generator", func(context.Context) (GeneratedCode, error) {
+					return codeGeneratorNode(ctx, model, codeGenInput{
+						TaskDescription: taskDescription, DevPlan: plan.DevPlan,
+						ExecutionStatus: executionStatus, GeneratedCode: generatedCode,
+						GeneratedTests: generatedTests, ErrorLogs: errorLogs, ErrorAnalysis: &analysisForFixer,
+					})
+				})
+				if err != nil {
+					return failedResult(ctx, taskDescription, iteration+1, generatedCode, generatedTests, sandboxID, fmt.Sprintf("Code fix failed: %v", err)), nil
+				}
+				generatedCode = codeResult.Code
+			}
 		}
 
 		ctx.Logger().Info("STEP 3: CODE SYNC")
@@ -144,6 +192,9 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 
 		if nextAction == "success" {
 			ctx.Logger().Info("SUCCESS! All tests passed")
+			if len(testsRepaired) > 0 {
+				ctx.Logger().Warn("Passed after correcting generated test(s)", "tests", testsRepaired)
+			}
 			ctx.Logger().Info("STEP 7: DOCUMENTATION")
 
 			finalResult, err := agnt5.Step(ctx, "final_response", func(context.Context) (FinalResponse, error) {
@@ -157,7 +208,7 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 			return WorkflowResult{
 				Success: true, Task: taskDescription, Iterations: iteration + 1,
 				Code: generatedCode, Tests: generatedTests, SandboxID: sandboxID,
-				Documentation: finalResult.MarkdownContent,
+				Documentation: finalResult.MarkdownContent, TestsRepaired: testsRepaired,
 			}, nil
 		}
 
@@ -167,6 +218,7 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 				Success: false, Task: taskDescription, Iterations: iteration + 1,
 				Error:     fmt.Sprintf("Maximum retries (%d) exhausted", maxRetries),
 				ErrorLogs: errorLogs, Code: generatedCode, Tests: generatedTests, SandboxID: sandboxID,
+				TestsRepaired: testsRepaired,
 			}, nil
 		}
 		ctx.Logger().Warn("Retrying", "attempt", iteration+2, "of", maxRetries, "status", status)
@@ -181,4 +233,18 @@ func failedResult(ctx *agnt5.Context, task string, iterations int, code, tests, 
 		Success: false, Task: task, Iterations: iterations,
 		Error: errMsg, Code: code, Tests: tests, SandboxID: sandboxID,
 	}
+}
+
+// mergeSorted returns the union of two name lists, sorted and deduplicated.
+func mergeSorted(a, b []string) []string {
+	seen := map[string]bool{}
+	for _, s := range append(append([]string{}, a...), b...) {
+		seen[s] = true
+	}
+	out := make([]string, 0, len(seen))
+	for s := range seen {
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
 }

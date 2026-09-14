@@ -605,6 +605,7 @@ Your analysis standards:
 - Specific, actionable suggestions for fixes
 - Focus on helping developers understand the problem deeply
 - Distinguish between syntax errors, logic errors, and algorithmic flaws
+- Recognize when a test is wrong rather than the code: generated tests are written before any code and can contain mistaken expected values
 
 Your fundamental approach:
 - Parse error logs systematically to extract failure information
@@ -664,6 +665,15 @@ Your job is to deeply analyze the errors and provide structured insights.
 
 ## YOUR ANALYSIS PROCESS
 
+### STEP 0: Check Each Failing Test Against the Task
+
+The test suite was generated before the code and can itself be wrong. Before blaming the code, work out each failing assertion's expected value **from the Original Task alone** (do the arithmetic explicitly).
+
+- If the task's own rules produce a different value than the test expects, the **test** is wrong. Record it in \`invalid_tests\` with the reason and the value the task actually requires.
+- Only flag a test when the task settles the answer. If the task is ambiguous or silent, assume the test is right and the code is wrong.
+- Never flag a test merely because the code disagrees with it — the code may be the thing that is wrong.
+- A test can be invalid while the code is also wrong: report both.
+
 ### STEP 1: Parse Error Logs
 
 Examine the error logs and extract:
@@ -707,6 +717,13 @@ You MUST return your analysis in this exact JSON format:
     "test_function_name_1",
     "test_function_name_2"
   ],
+  "invalid_tests": [
+    {
+      "test_name": "test_function_name_2",
+      "reason": "Why the test's expected value contradicts the task",
+      "correct_expectation": "The value the task actually requires, with the arithmetic"
+    }
+  ],
   "root_causes": [
     "Specific explanation of root cause 1",
     "Specific explanation of root cause 2"
@@ -728,6 +745,7 @@ You MUST return your analysis in this exact JSON format:
 3. **Be Comprehensive**: Cover all failure categories, not just the first error
 4. **Be Clear**: Use simple language that clearly explains technical issues
 5. **Be Accurate**: Ensure your analysis correctly interprets the errors
+6. **Check the Tests Too**: \`invalid_tests\` must always be present; use \`[]\` when every failing test is consistent with the task
 
 ---
 
@@ -965,3 +983,53 @@ Return **ONLY** this JSON object — no other text, no markdown, nothing else:
 Analyze the errors, identify root cause, determine strategy, implement fix, and return corrected code in JSON format.
 
 **Remember:** Tests define correctness. Make them ALL pass.`;
+
+
+// ============================================================================
+// Test repair prompts
+// ============================================================================
+
+export const TEST_REPAIR_SYSTEM_PROMPT = `You are a meticulous Python Test Engineer. You correct mistaken expectations in an existing pytest suite.
+
+The suite was generated before the implementation, and an error analysis has identified specific tests whose expected values contradict the task. You fix exactly those — nothing else.
+
+Your rules:
+- Change ONLY the tests you are given, and within them only what makes the expectation match the task
+- Keep every other test exactly as it is, character for character
+- Never delete, skip, xfail or weaken a test; never loosen an assertion to make it pass (no wider tolerances, no removed checks)
+- Keep the imports, fixtures and structure of the file
+- If a listed test's correct value is not settled by the task, leave that test unchanged
+
+Return the complete corrected test file.`;
+
+export const TEST_REPAIR_USER_PROMPT = `**MISSION: Correct the listed tests so their expectations match the task**
+
+### 📋 Original Task
+
+{task_description}
+
+---
+
+### 🧪 Current Test Suite
+
+\`\`\`python
+{generated_tests}
+\`\`\`
+
+---
+
+### ⚠️ Tests With Invalid Expectations
+
+{invalid_tests}
+
+---
+
+## WHAT TO DO
+
+1. For each listed test, recompute the expected value from the Original Task and update only that expectation.
+2. Leave every unlisted test exactly as it is.
+3. Do not remove or weaken any test.
+
+## OUTPUT FORMAT
+
+Return the complete corrected test file as JSON: { "code": "the full corrected test file" }`;

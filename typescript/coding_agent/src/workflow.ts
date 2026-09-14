@@ -24,8 +24,18 @@ import {
   installDepsNode,
   codeExecutorNode,
   errorAnalyzerNode,
+  testRepairNode,
   finalResponseNode,
+  _baseTestName,
 } from './functions.js';
+
+/**
+ * Generated tests are written before any code and can be wrong. The error
+ * analysis may flag such tests, and the workflow corrects them — but at most
+ * this many times per run, so it cannot keep rewriting tests to escape a
+ * failing implementation.
+ */
+const MAX_TEST_REPAIRS = 2;
 
 export const codingAgentWorkflow = workflow(
   'coding_agent_workflow',
@@ -42,6 +52,8 @@ export const codingAgentWorkflow = workflow(
     await ctx.set('task_description', task_description);
     await ctx.set('retries', 0);
     await ctx.set('execution_status', 'initial');
+    await ctx.set('test_repairs', 0);
+    await ctx.set('tests_repaired', []);
 
     ctx.logger.info(`Task: ${task_description.slice(0, 100)}...`);
     ctx.logger.info(`Max retries: ${max_retries}`);
@@ -138,22 +150,63 @@ export const codingAgentWorkflow = workflow(
           `Analysis complete: ${errorAnalysis.analysis_summary.slice(0, 100)}...`,
         );
 
-        const codeResult = await ctx.step(
-          `code_fix_iter_${iteration}`,
-          () =>
-            codeGeneratorNode(ctx, {
-              task_description,
-              dev_plan: devPlan,
-              execution_status: executionStatus,
-              generated_code: prevCode,
-              generated_tests: prevTests,
-              error_logs: errorLogs,
-              error_analysis: errorAnalysis,
-            }),
-        );
-
-        generatedCode = codeResult.code;
         generatedTests = prevTests;
+        let analysisForFixer: ErrorAnalysis = errorAnalysis;
+        let onlyTestFailures = false;
+
+        // Some failures may be the tests' fault, not the code's. Correct those
+        // tests first, so the fixer isn't pushed toward a wrong value.
+        const invalidTests = errorAnalysis.invalid_tests ?? [];
+        const testRepairs = (await ctx.get<number>('test_repairs')) ?? 0;
+        if (invalidTests.length && testRepairs < MAX_TEST_REPAIRS) {
+          ctx.logger.info('\nCorrecting tests that contradict the task');
+          const repair = await ctx.step(
+            `test_repair_iter_${iteration}`,
+            () =>
+              testRepairNode(ctx, {
+                task_description,
+                generated_tests: prevTests,
+                invalid_tests: invalidTests,
+              }),
+          );
+          await ctx.set('test_repairs', testRepairs + 1);
+          if (repair.accepted) {
+            generatedTests = repair.code;
+            const soFar = (await ctx.get<string[]>('tests_repaired')) ?? [];
+            await ctx.set('tests_repaired', [...new Set([...soFar, ...repair.repaired])].sort());
+            const remaining = errorAnalysis.failed_tests.filter(
+              (t: string) => !repair.repaired.includes(_baseTestName(t)),
+            );
+            analysisForFixer = { ...errorAnalysis, failed_tests: remaining, invalid_tests: [] };
+            onlyTestFailures = remaining.length === 0;
+          }
+        } else if (invalidTests.length) {
+          ctx.logger.warn(
+            `Test repair limit (${MAX_TEST_REPAIRS}) reached; treating failures as code bugs`,
+          );
+        }
+
+        if (onlyTestFailures) {
+          // Every failure came from a test that is now corrected: the code may
+          // already be right, so re-run before changing it.
+          ctx.logger.info('All failures were in the tests; re-running without changing the code');
+          generatedCode = prevCode;
+        } else {
+          const codeResult = await ctx.step(
+            `code_fix_iter_${iteration}`,
+            () =>
+              codeGeneratorNode(ctx, {
+                task_description,
+                dev_plan: devPlan,
+                execution_status: executionStatus,
+                generated_code: prevCode,
+                generated_tests: generatedTests,
+                error_logs: errorLogs,
+                error_analysis: analysisForFixer,
+              }),
+          );
+          generatedCode = codeResult.code;
+        }
       }
 
       await ctx.set('generated_code', generatedCode);
@@ -222,6 +275,10 @@ export const codingAgentWorkflow = workflow(
 
       if (nextAction === 'success') {
         ctx.logger.info('SUCCESS! All tests passed');
+        const testsRepaired = (await ctx.get<string[]>('tests_repaired')) ?? [];
+        if (testsRepaired.length) {
+          ctx.logger.warn(`Passed after correcting generated test(s): ${testsRepaired.join(', ')}`);
+        }
         ctx.logger.info('\nSTEP 7: DOCUMENTATION');
 
         const finalResult = await ctx.step(
@@ -245,6 +302,7 @@ export const codingAgentWorkflow = workflow(
           tests: generatedTests,
           sandbox_id: sandboxId,
           documentation: finalResult.markdown_content,
+          tests_repaired: testsRepaired,
         };
       } else {
         // All non-success outcomes → retry
@@ -265,6 +323,7 @@ export const codingAgentWorkflow = workflow(
             code: generatedCode,
             tests: generatedTests,
             sandbox_id: sandboxId,
+            tests_repaired: (await ctx.get<string[]>('tests_repaired')) ?? [],
           };
         }
 
@@ -287,6 +346,7 @@ export const codingAgentWorkflow = workflow(
       code: finalCode,
       tests: finalTests,
       sandbox_id: finalSandboxId,
+      tests_repaired: (await ctx.get<string[]>('tests_repaired')) ?? [],
     };
   },
 );

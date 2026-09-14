@@ -17,6 +17,8 @@ import type {
   SyncResult,
   ExecutionResult,
   FinalResponse,
+  InvalidTest,
+  TestRepair,
 } from './models.js';
 import {
   PLAN_SCHEMA,
@@ -36,6 +38,8 @@ import {
   ERROR_ANALYZER_USER_PROMPT,
   CODEFIXER_SYSTEM_PROMPT,
   CODEFIXER_USER_PROMPT,
+  TEST_REPAIR_SYSTEM_PROMPT,
+  TEST_REPAIR_USER_PROMPT,
 } from './prompts/index.js';
 import { createSandboxImpl as createSandbox, writeFileImpl as writeFile, runCommandImpl as runCommand } from './tools.js';
 
@@ -44,7 +48,10 @@ import { createSandboxImpl as createSandbox, writeFileImpl as writeFile, runComm
 // ============================================================================
 
 const lm = LM.groq({ apiKey: process.env.GROQ_API_KEY });
-const MODEL = 'groq/meta-llama/llama-4-scout-17b-16e-instruct';
+const MODEL = 'groq/qwen/qwen3.8-27b';
+// Upper bound on generated output. Left unset, the provider's default cuts long
+// code off mid-expression, and the half-written file fails every retry.
+const MAX_OUTPUT_TOKENS = 8192;
 
 // ============================================================================
 // Helpers
@@ -93,6 +100,132 @@ export function _validatePythonSyntax(code: string): { valid: boolean; error: st
     return { valid: false, error: 'Code still contains markdown fence markers' };
   }
   return { valid: true, error: '' };
+}
+
+// ============================================================================
+// Test repair guardrails
+// ============================================================================
+
+/** Reduce a pytest id such as `test.py::test_x[P3Y-9.0]` to `test_x`. */
+export function _baseTestName(name: string): string {
+  return (name.split('::').pop() ?? name).split('[')[0].trim();
+}
+
+const _indentOf = (line: string): number => line.length - line.trimStart().length;
+const _bracketDelta = (line: string): number =>
+  (line.match(/[)\]}]/g) ?? []).length - (line.match(/[(\[{]/g) ?? []).length;
+
+/**
+ * Map each test function to its [start, end) line range, decorators included.
+ *
+ * Node can't parse Python here (the Python template uses `ast`), so blocks are
+ * found by indentation and bracket balance: the decorators above a
+ * `def test…` line — including multi-line ones such as
+ * `@pytest.mark.parametrize(...)`, where expectations often live — then the
+ * signature, then every following line indented deeper or blank. That covers
+ * the plain top-level and class-level functions a generated pytest file uses.
+ */
+function _testFunctionSpans(code: string): Map<string, [number, number]> {
+  const lines = code.split('\n');
+  const spans = new Map<string, [number, number]>();
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(\s*)(?:async\s+)?def\s+(test\w*)\s*\(/);
+    if (!m) continue;
+    const indent = m[1].length;
+
+    // Walk up through decorators; a positive depth means we're inside one
+    // that opened further up.
+    let start = i;
+    let depth = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const text = lines[j].trim();
+      const delta = _bracketDelta(text);
+      if (depth === 0) {
+        if (text.startsWith('@') && _indentOf(lines[j]) === indent) {
+          start = j;
+          continue;
+        }
+        if (delta > 0 && text !== '') {
+          depth += delta;
+          start = j;
+          continue;
+        }
+        break;
+      }
+      depth = Math.max(0, depth + delta);
+      start = j;
+    }
+
+    // The signature may span lines; then the body is everything deeper.
+    let end = i + 1;
+    let sig = -_bracketDelta(lines[i]);
+    while (sig > 0 && end < lines.length) {
+      sig -= _bracketDelta(lines[end]);
+      end++;
+    }
+    while (end < lines.length && (lines[end].trim() === '' || _indentOf(lines[end]) > indent)) end++;
+    while (end > i + 1 && lines[end - 1].trim() === '') end--;
+    spans.set(m[2], [start, end]);
+  }
+  return spans;
+}
+
+function _testSources(code: string): Map<string, string> {
+  const lines = code.split('\n');
+  const out = new Map<string, string>();
+  for (const [name, [start, end]] of _testFunctionSpans(code)) {
+    out.set(name, lines.slice(start, end).join('\n').trim());
+  }
+  return out;
+}
+
+/** The file with every test function removed, blank lines ignored. */
+function _codeOutsideTests(code: string): string {
+  const lines = code.split('\n');
+  const inside = new Set<number>();
+  for (const [start, end] of _testFunctionSpans(code).values()) {
+    for (let k = start; k < end; k++) inside.add(k);
+  }
+  return lines
+    .filter((l, k) => !inside.has(k) && l.trim() !== '')
+    .map((l) => l.trimEnd())
+    .join('\n');
+}
+
+/**
+ * Accept a repaired suite only if it corrects flagged tests and nothing else.
+ *
+ * The guardrails live here, not only in the prompt, so the agent cannot make a
+ * failing run pass by deleting, weakening or rewriting tests it wasn't asked to.
+ */
+export function _checkTestRepair(
+  original: string,
+  candidate: string,
+  targets: Set<string>,
+): { accepted: boolean; reason: string; repaired: string[] } {
+  const syntax = _validatePythonSyntax(candidate);
+  if (!syntax.valid) return { accepted: false, reason: `repaired tests are invalid: ${syntax.error}`, repaired: [] };
+  const before = _testSources(original);
+  const after = _testSources(candidate);
+  const removed = [...before.keys()].filter((n) => !after.has(n)).sort();
+  const added = [...after.keys()].filter((n) => !before.has(n)).sort();
+  if (removed.length || added.length) {
+    return {
+      accepted: false,
+      reason: `test set changed (removed [${removed.join(', ')}], added [${added.join(', ')}])`,
+      repaired: [],
+    };
+  }
+  const changed = [...before.keys()].filter((n) => before.get(n) !== after.get(n)).sort();
+  const unflagged = changed.filter((n) => !targets.has(n));
+  if (unflagged.length) {
+    return { accepted: false, reason: `changed tests that were not flagged: [${unflagged.join(', ')}]`, repaired: [] };
+  }
+  if (_codeOutsideTests(original) !== _codeOutsideTests(candidate)) {
+    return { accepted: false, reason: 'changed code outside the flagged tests', repaired: [] };
+  }
+  if (!changed.length) return { accepted: false, reason: 'no flagged test was changed', repaired: [] };
+  return { accepted: true, reason: '', repaired: changed };
 }
 
 /**
@@ -181,6 +314,7 @@ export const plannerNode = fn('planner_node')
       ],
       config: {
         temperature: 0,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
         responseFormat: {
           formatType: 'json_schema',
           schemaName: 'Plan',
@@ -297,6 +431,7 @@ ${error_analysis.analysis_summary}
         ],
         config: {
           temperature: 0,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseFormat: {
             formatType: 'json_schema',
             schemaName: 'GeneratedCode',
@@ -339,6 +474,7 @@ export const testGeneratorNode = fn('test_generator_node')
         ],
         config: {
           temperature: 0,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseFormat: {
             formatType: 'json_schema',
             schemaName: 'GeneratedCode',
@@ -568,6 +704,7 @@ export const errorAnalyzerNode = fn('error_analyzer_node')
         ],
         config: {
           temperature: 0,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseFormat: {
             formatType: 'json_schema',
             schemaName: 'ErrorAnalysis',
@@ -581,7 +718,69 @@ export const errorAnalyzerNode = fn('error_analyzer_node')
       ctx.logger.info('Error analysis complete');
       ctx.logger.debug(`Failed tests: ${analysis.failed_tests.length}`);
       ctx.logger.debug(`Root causes: ${analysis.root_causes.length}`);
+      if (analysis.invalid_tests?.length) {
+        ctx.logger.warn(
+          `${analysis.invalid_tests.length} test(s) contradict the task: ` +
+            analysis.invalid_tests.map((t) => t.test_name).join(', '),
+        );
+      }
       return analysis;
+    },
+  );
+
+/**
+ * Test repair node — corrects tests the error analysis found to contradict the
+ * task. Rejected repairs keep the original tests: a wrong repair is worse than
+ * none.
+ */
+export const testRepairNode = fn('test_repair_node')
+  .retry({ maxAttempts: 3, initialIntervalMs: 1000 })
+  .backoff({ type: 'exponential', multiplier: 2 })
+  .run(
+    async (
+      ctx: Context,
+      input: { task_description: string; generated_tests: string; invalid_tests: InvalidTest[] },
+    ): Promise<TestRepair> => {
+      const { task_description, generated_tests, invalid_tests } = input;
+      const targets = new Set(invalid_tests.map((t) => _baseTestName(t.test_name)));
+      ctx.logger.info(`Repairing ${targets.size} test(s) with invalid expectations: ${[...targets].join(', ')}`);
+      const listing = invalid_tests
+        .map((t) => `- \`${t.test_name}\`: ${t.reason} Correct expectation: ${t.correct_expectation}`)
+        .join('\n');
+
+      // Function replacers: the inserted text is code, and a string replacement
+      // would interpret any `$&` or `$1` inside it.
+      const userPrompt = TEST_REPAIR_USER_PROMPT
+        .replace('{task_description}', () => task_description)
+        .replace('{generated_tests}', () => generated_tests)
+        .replace('{invalid_tests}', () => listing);
+
+      const response = await lm.generate({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: TEST_REPAIR_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        config: {
+          temperature: 0,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          responseFormat: {
+            formatType: 'json_schema',
+            schemaName: 'GeneratedCode',
+            schema: JSON.stringify(GENERATED_CODE_SCHEMA),
+            strict: true,
+          },
+        },
+      });
+
+      const candidate = _cleanCode((JSON.parse(response.text) as GeneratedCode).code);
+      const check = _checkTestRepair(generated_tests, candidate, targets);
+      if (!check.accepted) {
+        ctx.logger.warn(`Test repair rejected, keeping the original tests: ${check.reason}`);
+        return { accepted: false, code: generated_tests, repaired: [], reason: check.reason };
+      }
+      ctx.logger.info(`Repaired tests: ${check.repaired.join(', ')}`);
+      return { accepted: true, code: candidate, repaired: check.repaired, reason: '' };
     },
   );
 
@@ -611,6 +810,7 @@ export const finalResponseNode = fn('final_response_node')
         ],
         config: {
           temperature: 0,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
         },
       });
 

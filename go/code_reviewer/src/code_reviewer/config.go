@@ -5,7 +5,7 @@
 //	GITHUB_TOKEN=your_github_token_here (required)
 //	OPENAI_API_KEY=your_openai_key_here (required)
 //
-//	# At least one issue tracking system is required:
+//	# Optional — set one only if you pass ticket_url to the workflow:
 //	LINEAR_API_TOKEN=your_linear_api_key_here (optional)
 //	# OR
 //	JIRA_EMAIL=your_jira_email_here (optional, requires all 3 Jira vars)
@@ -52,10 +52,10 @@ func (c AppConfig) Validate() error {
 		return fmt.Errorf("missing required environment variables: %v; please create a .env file with these variables", missing)
 	}
 
-	hasLinear := c.LinearKey != ""
-	hasJira := c.JiraEmail != "" && c.JiraDomain != "" && c.JiraAPIToken != ""
-	if !hasLinear && !hasJira {
-		return fmt.Errorf("at least one issue tracking system must be configured: Linear (LINEAR_API_TOKEN) or Jira (JIRA_EMAIL, JIRA_DOMAIN, JIRA_API_TOKEN)")
-	}
+	// An issue tracker is optional: ticket_url is an optional workflow input,
+	// and a PR-only review is a legitimate use. When a ticket URL is supplied
+	// without the matching credential, the fetch tool reports that instead —
+	// refusing to start meant the whole worker died over a review that never
+	// needed a ticket (AGNT5-1161).
 	return nil
 }

@@ -16,15 +16,23 @@ Starter templates for building durable AI agents with the [AGNT5 Python SDK](htt
 | Template | Description |
 |----------|-------------|
 | [`quickstart`](quickstart/) | Fan-out workflow that summarizes the top Hacker News stories |
-| [`deep-wiki-agent`](deep-wiki-agent/) | Durable investigator agent with DeepWiki MCP, human review, and a checkpointed save step |
-| [`weather-agent`](weather-agent/) | Weather agent with OpenWeatherMap integration |
-| [`code_reviewer`](code_reviewer/) | AI-powered code review with GitHub and Jira integration |
+| [`weather-agent`](weather-agent/) | Weather agent with Open-Meteo integration |
+| [`code_reviewer`](code_reviewer/) | AI-powered code review with GitHub and Jira/Linear integration |
 | [`coding_agent`](coding_agent/) | Autonomous TDD agent running in an E2B sandbox |
-| [`customer_service`](customer_service/) | Multi-agent travel booking assistant |
-| [`deep_research`](deep_research/) | Autonomous research agent with Wikipedia sourcing |
+| [`travel_booking_customer_service`](travel_booking_customer_service/) | Multi-agent travel booking assistant |
 | [`tutor_agent`](tutor_agent/) | Multi-subject tutor with specialized handoffs |
+| [`hitl_deep_research`](hitl_deep_research/) | Research pipeline with a human-in-the-loop approval gate |
 
-Each template directory has its own README with template-specific setup.
+Not published — internal samples that the sync skips:
+
+| Template | Description |
+|----------|-------------|
+| [`deep-wiki-agent`](deep-wiki-agent/) | Durable investigator agent with DeepWiki MCP, human review, and a checkpointed save step |
+| [`financial-analyst`](financial-analyst/) | Financial analysis sample |
+| [`llm-playground`](llm-playground/) | Model and provider checks |
+| [`sandbox-smoke`](sandbox-smoke/) | Provider-agnostic smoke checks for sandbox integrations |
+| [`slack_deep_research`](slack_deep_research/) | Slack-driven research sample |
+| [`support-triage`](support-triage/) | Support triage sample |
 
 ## Running a template
 

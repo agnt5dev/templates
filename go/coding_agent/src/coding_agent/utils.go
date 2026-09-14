@@ -78,6 +78,11 @@ func extractThirdPartyImports(code string) []string {
 
 const jsonOnlyInstruction = "\n\nRespond with ONLY a single valid JSON object matching the required shape — no prose, no markdown code fences, no explanation."
 
+// maxOutputTokens bounds every model call. Left unset, the provider's default
+// cuts long code off mid-expression, and the half-written file fails the
+// syntax check on every retry.
+const maxOutputTokens = 8192
+
 // GenerateStructured prompts the model for JSON matching T and unmarshals
 // the response, retrying once with an error-correction follow-up if the
 // first response doesn't parse.
@@ -89,11 +94,19 @@ func GenerateStructured[T any](ctx *agnt5.Context, model agnt5.LanguageModel, sy
 	}
 
 	var lastErr error
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := 0; attempt < 3; attempt++ {
+		// Greedy decoding (temperature 0) occasionally falls into a repetition
+		// loop that runs to the token limit. Later attempts add a little
+		// randomness so the same loop is not replayed.
 		temperature := 0.0
+		if attempt > 0 {
+			temperature = 0.4
+		}
+		maxTokens := maxOutputTokens
 		resp, err := model.Generate(ctx, agnt5.GenerateRequest{
 			Messages:    messages,
 			Temperature: &temperature,
+			MaxTokens:   &maxTokens,
 		})
 		if err != nil {
 			return zero, err
@@ -106,6 +119,12 @@ func GenerateStructured[T any](ctx *agnt5.Context, model agnt5.LanguageModel, sy
 			lastErr = err
 		}
 
+		if resp.FinishReason == "length" {
+			// Cut off, not malformed: echoing thousands of runaway tokens back
+			// would only feed the loop. Retry from the original prompt.
+			lastErr = fmt.Errorf("response hit the %d-token limit before the JSON was complete: %w", maxOutputTokens, lastErr)
+			continue
+		}
 		messages = append(messages,
 			agnt5.Message{Role: agnt5.MessageRoleAssistant, Content: resp.Content},
 			agnt5.Message{Role: agnt5.MessageRoleUser, Content: "That was not valid JSON matching the required shape. Respond again with ONLY the JSON object, no other text."},

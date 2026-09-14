@@ -1,11 +1,11 @@
 [project]
 name = "customer-service-agnt5"
-version = "1.0.3"
+version = "1.0.4"
 description = "Customer service assistant for travel booking, built with AGNT5"
 requires-python = ">=3.11"
 
 dependencies = [
-    "agnt5~=0.9.6",
+    "agnt5~=0.13.0",
     "requests>=2.31.0",
     "python-dotenv>=1.2.1",
     "anthropic>=0.112.0",

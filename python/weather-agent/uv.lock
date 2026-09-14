@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "agnt5"
-version = "0.9.6"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
@@ -16,10 +16,11 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/14/c7/495006b9e0f9a2a39b8bcb1f8d233f4ac5ea6996d3e83708c8b8db7bf271/agnt5-0.13.0.tar.gz", hash = "sha256:dd6bab01e4d1eb31c9d8b271026df3b83d2e6c77be59546915b959d791a96f85", size = 890075, upload-time = "2026-09-13T15:44:24.961Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/17/a667322992beffcd636ca0a5b2a55f4cf27fda4fed8a3b5541b18777f7bc/agnt5-0.9.6-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:e5189c6d051119778f490a9dd304fc5e353ae989a65cef0feee8ee37164118ba", size = 15400337, upload-time = "2026-07-30T16:51:52.874Z" },
-    { url = "https://files.pythonhosted.org/packages/3f/d3/ebc87e3b1a066563797aa14df138879e84aac9c9f02fa9f6bf918bd2330a/agnt5-0.9.6-cp310-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:88566d833e8229b8f0716860e2948fe189ea9df5294fcc1f9d37726effc51113", size = 17944267, upload-time = "2026-07-30T16:51:55.238Z" },
-    { url = "https://files.pythonhosted.org/packages/2b/5e/e8f906d6197932d49af76705f163242c0eebb2f4759260ac9ac222be9f74/agnt5-0.9.6-cp310-abi3-manylinux_2_39_x86_64.whl", hash = "sha256:f52e446f27d3308238a2375f69156aed9dc78834d788b26fcae29387aa1dac5a", size = 17017417, upload-time = "2026-07-30T16:51:57.549Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/60/db0c24fd0d072317cbd9bf235a49c910b8f926845cb136a255523ef4ae34/agnt5-0.13.0-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:277594f8480912808c2126da3312ca819726642bccb2d3d4e86f30bea376e28b", size = 16339890, upload-time = "2026-09-13T15:44:18.369Z" },
+    { url = "https://files.pythonhosted.org/packages/13/8a/19423e0d5f5b6482c2e65a126af34fd2a108c78065acf431b279abb33bd4/agnt5-0.13.0-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:46bc0011e76ea1d0c14ae12df83095f13c01da098e0fe1864de929038c87308b", size = 19081832, upload-time = "2026-09-13T15:44:20.685Z" },
+    { url = "https://files.pythonhosted.org/packages/87/66/44f624c81ecf28e18248856a718d03cf1d0fef6bdc327225d27a1ade5f54/agnt5-0.13.0-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:2a10ebe77e1818bd2430a97d51fc2920719f63a146c5adf91fee285253137dfb", size = 18084386, upload-time = "2026-09-13T15:44:22.794Z" },
 ]
 
 [[package]]
@@ -366,7 +367,7 @@ wheels = [
 
 [[package]]
 name = "weather-agent"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "agnt5" },
@@ -376,7 +377,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agnt5", specifier = "~=0.9.6" },
+    { name = "agnt5", specifier = "~=0.13.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]

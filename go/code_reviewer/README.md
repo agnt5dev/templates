@@ -47,7 +47,7 @@ src/code_reviewer/         # implementation package (mirrors Python's src/<packa
    go mod download
    ```
 
-4. Set up environment variables (`GITHUB_TOKEN` and `OPENAI_API_KEY` are required; at least one of Jira or Linear credentials is required):
+4. Set up environment variables (`GITHUB_TOKEN` and `OPENAI_API_KEY` are required; Jira/Linear credentials are optional, needed only when you pass `ticket_url`):
    ```bash
    cp .env.example .env
    ```

@@ -2,9 +2,9 @@
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Starter templates for building durable AI workflows on AGNT5 in Python and TypeScript. Clone, configure, deploy.
+Starter templates for building durable AI workflows on AGNT5 in Python, TypeScript, and Go. Clone, configure, deploy.
 
-This repo contains starter templates for **Python** and **TypeScript**. See the [**Python**](python/) and [**TypeScript**](typescript/) subfolders for language-specific setup and per-template walkthroughs.
+This repo contains starter templates for **Python**, **TypeScript**, and **Go**. See the [**Python**](python/), [**TypeScript**](typescript/), and [**Go**](go/) subfolders for language-specific setup and per-template walkthroughs.
 
 > [!IMPORTANT]
 > Templates run on the **AGNT5 CLI**. Install it before running any sample:
@@ -13,13 +13,13 @@ This repo contains starter templates for **Python** and **TypeScript**. See the 
 > curl -LsSf https://agnt5.com/cli.sh | bash
 >
 > # or Homebrew
-> brew install agnt5/tap/agnt5
+> brew install agnt5dev/agnt5/agnt5
 > ```
 
 ## Getting Started
 
 **Prerequisites:**
-- Python 3.12+ (for Python templates), Node.js 22+ (for TypeScript templates), and/or Go 1.23+ (for Go templates)
+- Python 3.12+ (for Python templates), Node.js 22+ (for TypeScript templates), and/or Go 1.26+ (for Go templates)
 - [Docker](https://docs.docker.com/get-started/get-docker/)
 - AGNT5 CLI (see callout above)
 
@@ -63,6 +63,7 @@ See [`templates.json`](templates.json) for the authoritative manifest.
 ```
 ├── python/         # Python templates (uv + pyproject.toml)
 ├── typescript/     # TypeScript templates (pnpm + tsx)
+├── go/             # Go templates (go modules)
 ├── templates.json  # Manifest used by the CLI and release pipeline
 └── README.md
 ```

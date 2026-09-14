@@ -18,11 +18,32 @@ export interface GeneratedCode {
   code: string;
 }
 
+/** A failing test whose own expectation contradicts the task. */
+export interface InvalidTest {
+  test_name: string;
+  reason: string;
+  correct_expectation: string;
+}
+
 export interface ErrorAnalysis {
   failed_tests: string[];
+  /**
+   * Failing tests that are wrong rather than the code: their expected value
+   * contradicts the task. Generated tests are written before any code and can
+   * be wrong; without this the fixer bends correct code toward a bad test.
+   */
+  invalid_tests: InvalidTest[];
   root_causes: string[];
   suggested_fixes: string[];
   analysis_summary: string;
+}
+
+/** Outcome of correcting tests the error analysis flagged as invalid. */
+export interface TestRepair {
+  accepted: boolean;
+  code: string;
+  repaired: string[];
+  reason: string;
 }
 
 export interface SyncResult {
@@ -65,6 +86,11 @@ export interface WorkflowResult {
   error?: string;
   /** Last test/execution error logs */
   error_logs?: string;
+  /**
+   * Generated tests whose expected values were corrected against the task.
+   * A pass that needed these is still a pass, but the tests changed.
+   */
+  tests_repaired?: string[];
 }
 
 // ============================================================================
@@ -107,6 +133,21 @@ export const ERROR_ANALYSIS_SCHEMA = {
       items: { type: 'string' },
       description: 'List of failing test function names',
     },
+    invalid_tests: {
+      type: 'array',
+      description:
+        'Failing tests whose expected value contradicts the task (empty when the tests are consistent with it)',
+      items: {
+        type: 'object',
+        properties: {
+          test_name: { type: 'string' },
+          reason: { type: 'string' },
+          correct_expectation: { type: 'string' },
+        },
+        required: ['test_name', 'reason', 'correct_expectation'],
+        additionalProperties: false,
+      },
+    },
     root_causes: {
       type: 'array',
       items: { type: 'string' },
@@ -122,6 +163,6 @@ export const ERROR_ANALYSIS_SCHEMA = {
       description: 'Overall assessment of what is wrong and the strategy to fix it',
     },
   },
-  required: ['failed_tests', 'root_causes', 'suggested_fixes', 'analysis_summary'],
+  required: ['failed_tests', 'invalid_tests', 'root_causes', 'suggested_fixes', 'analysis_summary'],
   additionalProperties: false,
 };
