@@ -121,3 +121,131 @@ def test_extra():
 		}
 	}
 }
+
+// TestCheckTestRepairRejectsNeuteredTests is the AGNT5-1160 regression. The
+// package comment promised the agent could not "make a failing run pass by
+// deleting, weakening or rewriting tests", and every check looked at which
+// tests changed, never whether the changed test still claimed anything.
+func TestCheckTestRepairRejectsNeuteredTests(t *testing.T) {
+	original := `def test_add():
+    assert add(2, 3) == 6
+
+
+def test_sub():
+    assert sub(3, 2) == 1
+`
+	targets := map[string]bool{"test_add": true}
+
+	for name, candidate := range map[string]string{
+		"body replaced with pass": `def test_add():
+    pass
+
+
+def test_sub():
+    assert sub(3, 2) == 1
+`,
+		"assertion made vacuous": `def test_add():
+    assert True
+
+
+def test_sub():
+    assert sub(3, 2) == 1
+`,
+	} {
+		accepted, why, _ := checkTestRepair(original, candidate, targets)
+		if accepted {
+			t.Errorf("%s: repair accepted, want rejection", name)
+		}
+		if !strings.Contains(why, "no longer asserts") {
+			t.Errorf("%s: reason = %q, want it to name the missing assertion", name, why)
+		}
+	}
+}
+
+// The guard must not block a genuine correction.
+func TestCheckTestRepairAcceptsACorrectedExpectation(t *testing.T) {
+	original := "def test_add():\n    assert add(2, 3) == 6\n"
+	candidate := "def test_add():\n    assert add(2, 3) == 5\n"
+
+	accepted, why, changed := checkTestRepair(original, candidate, map[string]bool{"test_add": true})
+
+	if !accepted {
+		t.Fatalf("corrected expectation rejected: %s", why)
+	}
+	if len(changed) != 1 || changed[0] != "test_add" {
+		t.Errorf("changed = %v, want [test_add]", changed)
+	}
+}
+
+// Malformed Python used to be accepted as long as the test names survived; Go
+// cannot parse Python, so the structural checks stand in for the Python
+// template's ast.parse.
+func TestValidatePythonSourceRejectsMalformedCandidates(t *testing.T) {
+	cases := map[string]string{
+		"truncated call":   "def test_add():\n    assert add(2, 3 == 5\n",
+		"unterminated doc": "def test_add():\n    \"\"\"unfinished\n    assert add(2, 3) == 5\n",
+		"markdown fence":   "```python\ndef test_add():\n    assert add(2, 3) == 5\n```",
+		"no tests at all":  "def helper():\n    return 1\n",
+		"empty":            "   ",
+	}
+	for name, code := range cases {
+		if err := validatePythonSource(code); err == nil {
+			t.Errorf("%s: accepted, want an error", name)
+		}
+	}
+
+	valid := "import pytest\n\n\ndef test_add():\n    assert add(2, 3) == 5  # (2, 3)\n"
+	if err := validatePythonSource(valid); err != nil {
+		t.Errorf("valid source rejected: %v", err)
+	}
+}
+
+// The review's exact evasions: an assertion that survives only in a comment or
+// a string must not count, and a real assertion that merely mentions True must.
+func TestStillAssertsReadsSyntaxNotText(t *testing.T) {
+	cases := map[string]struct {
+		source string
+		want   bool
+	}{
+		"pass with assertion in comment":    {"def test_x():\n    pass  # assert old == 5\n", false},
+		"vacuous plus assertion in comment": {"def test_x():\n    assert True  # assert old == 5\n", false},
+		"assertion in docstring only":       {"def test_x():\n    \"\"\"assert something\"\"\"\n    return\n", false},
+		"vacuous with message":              {"def test_x():\n    assert True, \"fine\"\n", false},
+		"True compared to a call":           {"def test_x():\n    assert True == predicate()\n", true},
+		"real comparison":                   {"def test_x():\n    assert add(2, 3) == 5\n", true},
+		"pytest.raises":                     {"def test_x():\n    with pytest.raises(ValueError):\n        add(2, 'x')\n", true},
+		"unittest style":                    {"def test_x(self):\n    self.assertEqual(add(2, 3), 5)\n", true},
+		"explicit raise":                    {"def test_x():\n    raise AssertionError('no')\n", true},
+	}
+	for name, tc := range cases {
+		if got := stillAsserts(tc.source); got != tc.want {
+			t.Errorf("%s: stillAsserts = %v, want %v", name, got, tc.want)
+		}
+	}
+}
+
+// Validation must see syntax, not bytes: delimiters inside strings are data.
+func TestValidatePythonSourceDistinguishesDataFromSyntax(t *testing.T) {
+	valid := map[string]string{
+		"triple quote inside a string":   "def test_x():\n    expected = '\"\"\"'\n    assert render() == expected\n",
+		"markdown fence inside a string": "def test_x():\n    sample = \"```python\\nprint(1)\\n```\"\n    assert parse(sample)\n",
+		"bracket inside a string":        "def test_x():\n    assert f(\"(\") == \")\"\n",
+		"bracket inside a comment":       "def test_x():\n    assert f(1) == 2  # (unbalanced\n",
+	}
+	for name, code := range valid {
+		if err := validatePythonSource(code); err != nil {
+			t.Errorf("%s: rejected valid code: %v", name, err)
+		}
+	}
+
+	invalid := map[string]string{
+		"mismatched brackets that cancel": "def test_x():\n    assert f([)]\n",
+		"unterminated string":             "def test_x():\n    assert f(\"unterminated) == 1\n",
+		"fence outside any string":        "```python\ndef test_x():\n    assert f(1) == 1\n```",
+	}
+	for name, code := range invalid {
+		if err := validatePythonSource(code); err == nil {
+			t.Errorf("%s: accepted, want an error", name)
+		}
+	}
+}

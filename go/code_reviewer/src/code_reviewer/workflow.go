@@ -37,6 +37,11 @@ type CodeReviewOutput struct {
 	ReportFile     string         `json:"report_file,omitempty"`
 }
 
+// maxConcurrentFileReviews bounds the per-file model calls a single review
+// makes at once. Large enough to keep a normal PR fast, small enough that a
+// 200-file PR does not open 200 concurrent requests.
+const maxConcurrentFileReviews = 6
+
 func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.LanguageModel, cfg AppConfig) (CodeReviewOutput, error) {
 	ctx.Logger().Info("Starting code review workflow")
 
@@ -135,18 +140,39 @@ func CodeReviewerWorkflow(ctx *agnt5.Context, in CodeReviewInput, model agnt5.La
 		var securityReview SecurityReview
 		var securityErr error
 
+		// A fixed pool of workers pulls jobs from a channel, so the number of
+		// goroutines and of in-flight model calls are both bounded by
+		// maxConcurrentFileReviews. The earlier version spawned one goroutine
+		// per file that then waited for a slot -- bounded requests, unbounded
+		// goroutines -- and ran the security pass outside the limit entirely,
+		// so a large PR still fanned out further than the limit claimed
+		// (AGNT5-1160). The security review is one more job in the same pool.
+		type reviewJob struct{ index int } // index == len(reviewableFiles) is the security pass
+		jobs := make(chan reviewJob)
 		var wg sync.WaitGroup
-		wg.Add(len(reviewableFiles) + 1)
-		for i, f := range reviewableFiles {
-			go func(i int, f PRFile) {
-				defer wg.Done()
-				fileReviews[i], fileErrs[i] = reviewFileNode(ctx, model, f, prSum, techStack)
-			}(i, f)
+		workers := maxConcurrentFileReviews
+		if n := len(reviewableFiles) + 1; n < workers {
+			workers = n
 		}
-		go func() {
-			defer wg.Done()
-			securityReview, securityErr = securityReviewNode(ctx, model, reviewableFiles, prSum, techStack)
-		}()
+		for w := 0; w < workers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for job := range jobs {
+					if job.index == len(reviewableFiles) {
+						securityReview, securityErr = securityReviewNode(ctx, model, reviewableFiles, prSum, techStack)
+						continue
+					}
+					f := reviewableFiles[job.index]
+					fileReviews[job.index], fileErrs[job.index] = reviewFileNode(ctx, model, f, prSum, techStack)
+				}
+			}()
+		}
+		for i := range reviewableFiles {
+			jobs <- reviewJob{index: i}
+		}
+		jobs <- reviewJob{index: len(reviewableFiles)}
+		close(jobs)
 		wg.Wait()
 
 		for _, e := range fileErrs {

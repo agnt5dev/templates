@@ -15,6 +15,26 @@ import { CONTEXT_BUILDER_USER_PROMPT } from './prompts/index.js';
 
 const PR_SIZE_WARNING_THRESHOLD = 30;
 
+// Bounds the per-file model calls a single review makes at once. Large enough
+// to keep a normal PR fast, small enough that a 200-file PR does not open 200
+// concurrent requests.
+const MAX_CONCURRENT_REVIEWS = 6;
+
+// runWithLimit runs the thunks with at most `limit` in flight and returns their
+// results in input order.
+async function runWithLimit<T>(thunks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(thunks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < thunks.length) {
+      const index = next++;
+      results[index] = await thunks[index]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, thunks.length) }, worker));
+  return results;
+}
+
 export const codeReviewerWorkflow = workflow(
   'code_reviewer_workflow',
   async (
@@ -95,7 +115,13 @@ export const codeReviewerWorkflow = workflow(
     // Minimal ticket context for per-file prompts (full context goes to reviewer_agent)
     const ticketContext: Record<string, any> = { available: false };
 
-    const fileReviewPromises = reviewableFiles.map((f, i) =>
+    // At most MAX_CONCURRENT_REVIEWS model calls in flight. Promise.all over
+    // every file at once opened one request per file, and a large PR
+    // collected rate-limit errors instead of reviews. The security review is
+    // one more job in the same pool, not a run outside the limit
+    // (AGNT5-1165). ctx.step starts as soon as it is called, so each job is a
+    // thunk that the runner invokes only when a slot is free.
+    const jobs: Array<() => Promise<Record<string, any>>> = reviewableFiles.map((f, i) => () =>
       ctx.step(`review_file_${i}`, () =>
         reviewFileNode(ctx, {
           file_data: f,
@@ -105,27 +131,20 @@ export const codeReviewerWorkflow = workflow(
         }),
       ),
     );
-
-    const securityPromise = ctx.step('security_review', () =>
-      securityReviewNode(ctx, {
-        files: reviewableFiles,
-        pr_context: prContext,
-        tech_stack: techStack,
-        ticket_context: ticketContext,
-      }),
+    jobs.push(() =>
+      ctx.step('security_review', () =>
+        securityReviewNode(ctx, {
+          files: reviewableFiles,
+          pr_context: prContext,
+          tech_stack: techStack,
+          ticket_context: ticketContext,
+        }),
+      ),
     );
 
-    let fileReviews: Array<Record<string, any>>;
-    let securityReview: Record<string, any>;
-
-    if (fileReviewPromises.length > 0) {
-      const allResults = await Promise.all([...fileReviewPromises, securityPromise]);
-      fileReviews = allResults.slice(0, -1) as Array<Record<string, any>>;
-      securityReview = allResults[allResults.length - 1] as Record<string, any>;
-    } else {
-      securityReview = await securityPromise;
-      fileReviews = [];
-    }
+    const allResults = await runWithLimit(jobs, MAX_CONCURRENT_REVIEWS);
+    const fileReviews = allResults.slice(0, -1);
+    const securityReview = allResults[allResults.length - 1];
 
     await ctx.set('file_reviews', fileReviews);
     await ctx.set('security_review', securityReview);

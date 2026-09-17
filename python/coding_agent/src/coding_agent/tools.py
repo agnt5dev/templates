@@ -10,6 +10,21 @@ from agnt5 import tool, Context
 from coding_agent.config import config
 
 
+# Bounds each of stdout and stderr for a single sandbox command. Generous
+# enough for a test run's real output, small enough that a runaway loop cannot
+# grow the worker's memory until it is killed.
+MAX_COMMAND_OUTPUT_BYTES = 256 * 1024
+_TRUNCATION_MARKER = "\n... [output truncated]"
+
+
+def _cap_output(text: str) -> str:
+    """Keep the head of an oversized stream and say that the rest was dropped."""
+    room = MAX_COMMAND_OUTPUT_BYTES - len(_TRUNCATION_MARKER)
+    if len(text) <= MAX_COMMAND_OUTPUT_BYTES:
+        return text
+    return text[:room] + _TRUNCATION_MARKER
+
+
 class E2BSandboxTools:
     """E2B Sandbox integration tools for secure code execution.
 
@@ -287,6 +302,11 @@ class E2BSandboxTools:
                 stderr = e.stderr
                 error = e.error
                 ctx.logger.debug(f"Command failed with exit code {exit_code}")
+
+            # Capped: generated code under test can print without bound, and
+            # the whole of it was handed back to the worker (AGNT5-1165).
+            stdout = _cap_output(stdout or "")
+            stderr = _cap_output(stderr or "")
 
             execution_time = (time.time() - start_time) * 1000  # ms
 

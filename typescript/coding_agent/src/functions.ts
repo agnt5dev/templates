@@ -83,23 +83,120 @@ export function _cleanCode(code: string): string {
 }
 
 /**
- * Basic pre-sandbox syntax sanity check for Python source.
+ * Pre-sandbox sanity check for Python source.
  *
- * We cannot run ast.parse() in TypeScript, so we do a lightweight check:
- * - Reject empty/whitespace-only strings
- * - Reject code that still contains markdown fence markers (unfixed)
- *
- * Deep syntax validation happens inside the E2B sandbox via pytest/Python
- * itself (collection errors surface as exit_code 2).
+ * Node cannot run ast.parse() (the Python template does), so this is
+ * structural. The checks run on the code with string and comment contents
+ * removed, so a fence or a bracket inside a string is data, not syntax: a
+ * text-processing task's tests legitimately contain both. What is caught is
+ * what a truncated or malformed model response actually looks like: nothing, a
+ * fence outside any string, an unterminated string, mismatched brackets. A
+ * syntax error that slips through still fails when the suite runs in the
+ * sandbox; checking here keeps a broken candidate from replacing working tests
+ * (AGNT5-1165, the port of the Go validator).
  */
 export function _validatePythonSyntax(code: string): { valid: boolean; error: string } {
   if (!code || code.trim().length === 0) {
     return { valid: false, error: 'Code is empty' };
   }
-  if (code.trim().startsWith('```')) {
+  const stripped = _stripPythonLiterals(code);
+  if (stripped === null) {
+    return { valid: false, error: 'Code has an unterminated string literal' };
+  }
+  if (stripped.includes('```')) {
     return { valid: false, error: 'Code still contains markdown fence markers' };
   }
+  const brackets = _checkBrackets(stripped);
+  if (brackets) return { valid: false, error: brackets };
   return { valid: true, error: '' };
+}
+
+/**
+ * The code with every comment removed and every string literal's contents
+ * replaced by an empty literal, so later checks see only syntax. Newlines are
+ * kept so line-based logic still lines up. Returns null for an unterminated
+ * string -- the truncated-response shape -- rather than guessing.
+ */
+export function _stripPythonLiterals(code: string): string | null {
+  let out = '';
+  const n = code.length;
+  let i = 0;
+  while (i < n) {
+    const c = code[i];
+    if (c === '#') {
+      while (i < n && code[i] !== '\n') i++;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      const triple = code.startsWith(c.repeat(3), i);
+      const quoteLen = triple ? 3 : 1;
+      out += c.repeat(quoteLen * 2); // an empty literal of the same kind
+      i += quoteLen;
+      let closed = false;
+      while (i < n) {
+        if (code[i] === '\\') { i += 2; continue; }
+        if (code[i] === '\n') {
+          if (!triple) break; // a single-quoted string cannot span lines
+          out += '\n';
+        }
+        if (code[i] === c && (!triple || code.startsWith(c.repeat(3), i))) {
+          i += quoteLen;
+          closed = true;
+          break;
+        }
+        i++;
+      }
+      if (!closed) return null;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+/** Delimiters must open and close in matching pairs; a plain count let `f([)]` through. */
+export function _checkBrackets(stripped: string): string | null {
+  const closers: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
+  const stack: string[] = [];
+  for (const c of stripped) {
+    if (c === '(' || c === '[' || c === '{') stack.push(c);
+    else if (c === ')' || c === ']' || c === '}') {
+      if (!stack.length || stack[stack.length - 1] !== closers[c]) {
+        return `Code has mismatched brackets near '${c}', so it is truncated or malformed`;
+      }
+      stack.pop();
+    }
+  }
+  if (stack.length) return `Code has ${stack.length} unclosed bracket(s), so it is truncated or malformed`;
+  return null;
+}
+
+// An assert whose whole condition is a constant that always holds, with or
+// without a message. `assert True == predicate()` does not match.
+const VACUOUS_ASSERTION = /^assert\s*\(?\s*(True|1|not\s+False)\s*\)?\s*(,.*)?$/;
+// The other ways a test states an expectation.
+const ASSERTION_CALL = /(^|[^\w.])(pytest\.raises|self\.assert[A-Za-z]+|self\.fail|raise)\b/;
+
+/**
+ * Whether a test body claims anything at all. A test rewritten to `pass`,
+ * `return` or `assert True` turns a failing suite green without fixing the
+ * code -- the exact move the guardrails below promise to prevent. Looks at the
+ * code with strings and comments stripped, so `pass  # assert old == 5` is seen
+ * for the empty test it is (AGNT5-1165).
+ */
+export function _stillAsserts(testSource: string): boolean {
+  const stripped = _stripPythonLiterals(testSource);
+  if (stripped === null) return false;
+  for (const line of stripped.split('\n')) {
+    const stmt = line.trim();
+    if (/^assert(?![\w])/.test(stmt)) {
+      if (!VACUOUS_ASSERTION.test(stmt)) return true;
+      continue;
+    }
+    if (ASSERTION_CALL.test(stmt)) return true;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -225,6 +322,14 @@ export function _checkTestRepair(
     return { accepted: false, reason: 'changed code outside the flagged tests', repaired: [] };
   }
   if (!changed.length) return { accepted: false, reason: 'no flagged test was changed', repaired: [] };
+  // A flagged test may be corrected, not neutered: rewriting it to `pass` or
+  // `assert True` makes the suite green while the code stays broken. The
+  // docstring above has always promised this; nothing checked it.
+  for (const name of changed) {
+    if (!_stillAsserts(after.get(name) ?? '')) {
+      return { accepted: false, reason: `repaired test ${name} no longer asserts anything`, repaired: [] };
+    }
+  }
   return { accepted: true, reason: '', repaired: changed };
 }
 
@@ -528,25 +633,45 @@ export const codeSyncNode = fn('code_sync_node')
         }
       }
 
-      // Create or reuse sandbox
-      let sandboxId = existingSandboxId;
+      // createSandbox reconnects to an existing ID and falls back to a new
+      // sandbox when it cannot -- but this node only called it when there
+      // was no ID, so an expired sandbox (they live 300s; this workflow
+      // retries for longer) was reused forever and every later sync failed
+      // against one that no longer existed. It is called every time now, and
+      // the ID that comes back is the live one (AGNT5-1165).
+      const created = await createSandbox(ctx, existingSandboxId);
+      let sandboxId = created.sandbox_id;
       if (!sandboxId) {
-        ctx.logger.info('Creating new E2B sandbox');
-        const result = await createSandbox(ctx);
-        sandboxId = result.sandbox_id;
-        if (!sandboxId) {
-          throw new Error('Failed to create sandbox — no ID returned');
-        }
-        ctx.logger.info(`Created sandbox: ${sandboxId}`);
-      } else {
-        ctx.logger.info(`Using existing sandbox: ${sandboxId}`);
+        throw new Error(`Failed to create sandbox: ${created.error ?? 'no ID returned'}`);
       }
 
-      ctx.logger.debug('Writing main.py...');
-      await writeFile(ctx, sandboxId, 'main.py', main_code);
+      // writeFile reports failure in its result rather than throwing, and
+      // those results used to be discarded.
+      const writeBoth = async (target: string): Promise<string | undefined> => {
+        for (const [path, content] of [['main.py', main_code], ['test.py', test_code]] as Array<[string, string]>) {
+          ctx.logger.debug(`Writing ${path}...`);
+          // writeFileImpl reports through its return string: "File written
+          // successfully: <path>" or "Error writing file <path>: <reason>".
+          // It never throws, which is why a dead sandbox went unnoticed here.
+          const written = await writeFile(ctx, target, path, content);
+          if (typeof written === 'string' && written.startsWith('Error')) {
+            return written;
+          }
+        }
+        return undefined;
+      };
 
-      ctx.logger.debug('Writing test.py...');
-      await writeFile(ctx, sandboxId, 'test.py', test_code);
+      let error = await writeBoth(sandboxId);
+      if (error) {
+        ctx.logger.warn(`Sandbox write failed (${error}), recreating the sandbox`);
+        const replacement = await createSandbox(ctx);
+        if (!replacement.sandbox_id) {
+          return { success: false, sandbox_id: sandboxId, message: `sandbox write failed (${error}) and a replacement could not be created` };
+        }
+        sandboxId = replacement.sandbox_id;
+        error = await writeBoth(sandboxId);
+        if (error) return { success: false, sandbox_id: sandboxId, message: error };
+      }
 
       ctx.logger.info('Code and tests synced successfully');
       return {

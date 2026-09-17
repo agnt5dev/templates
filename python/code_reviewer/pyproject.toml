@@ -1,6 +1,6 @@
 [project]
 name = "code_reviewer"
-version = "0.1.4"
+version = "0.1.5"
 description = "Code Reviewer Agent built using AGNT5 SDK"
 readme = "README.md"
 authors = [

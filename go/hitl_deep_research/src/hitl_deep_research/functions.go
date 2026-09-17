@@ -102,8 +102,10 @@ Use the wikipedia_search_tool and fetch_webpage_tool to gather comprehensive inf
 		if !strings.Contains(err.Error(), "max turns exceeded") {
 			return "", err
 		}
-		ctx.Logger().Warn("Research agent hit its turn limit, synthesizing from findings so far")
-		return synthesizePartialResearch(ctx, topic, researchPlan)
+		findings := RecordedFindings(ctx)
+		ctx.Logger().Warn("Research agent hit its turn limit, synthesizing from findings so far",
+			"gathered_chars", len(findings))
+		return synthesizePartialResearch(ctx, topic, researchPlan, findings)
 	}
 	ctx.Logger().Info("Research completed", "chars", len(result.Response))
 	return result.Response, nil
@@ -113,7 +115,28 @@ Use the wikipedia_search_tool and fetch_webpage_tool to gather comprehensive inf
 // continue with whatever the research agent managed to gather before running
 // out of turns. WritingAgent has no tools, so it cannot hit the turn limit in
 // turn and is guaranteed to terminate.
-func synthesizePartialResearch(ctx *agnt5.Context, topic, researchPlan string) (string, error) {
+func synthesizePartialResearch(ctx *agnt5.Context, topic, researchPlan, findings string) (string, error) {
+	// The tools record what they retrieved (tools.go: recordFinding), so the
+	// writer works from the material the run actually gathered. Without it this
+	// asked a tool-free agent to "summarize" a topic it had been told nothing
+	// about, and labelled the result partial research (AGNT5-1160).
+	gathered := strings.TrimSpace(findings)
+	if gathered == "" {
+		// Nothing to write from, so nothing is written by a model: asking one
+		// to "summarize" with no material invites it to supply the research
+		// from memory, which is the failure this path exists to prevent. The
+		// report says what happened and which subtopics are uncovered -- all
+		// of them.
+		ctx.Logger().Warn("No findings were gathered before the turn limit; returning a fixed no-evidence report")
+		return fmt.Sprintf(`PARTIAL RESEARCH — coverage is incomplete.
+
+No sources were retrieved before the research agent ran out of turns, so there
+are no findings to report for "%s".
+
+Uncovered subtopics (all of them):
+%s`, topic, researchPlan), nil
+	}
+
 	prompt := fmt.Sprintf(`Research on the topic below was cut short before it could be completed.
 
 Topic: %s
@@ -121,13 +144,15 @@ Topic: %s
 Research Plan:
 %s
 
-Instructions:
-1. Summarize what is reliably known about the subtopics in the plan
-2. Organize the summary by subtopic, using the same structure as the plan
-3. Do NOT invent sources, URLs, or citations — omit them if you do not have them
-4. Explicitly note which subtopics remain uncovered
+Material gathered before research stopped:
+%s
 
-Begin your response with "PARTIAL RESEARCH — coverage is incomplete."`, topic, researchPlan)
+Instructions:
+1. Write up only what the gathered material supports, organized by subtopic
+2. Do NOT invent sources, URLs, citations or facts — if the material does not cover a subtopic, say so
+3. Explicitly list which subtopics remain uncovered
+
+Begin your response with "PARTIAL RESEARCH — coverage is incomplete."`, topic, researchPlan, gathered)
 
 	result, err := WritingAgent.Run(ctx, agnt5.AgentInput{Message: prompt})
 	if err != nil {

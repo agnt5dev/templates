@@ -1,7 +1,167 @@
 from agnt5 import Context, tool
 import asyncio
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.util.connection import create_connection
+
+
+# The webpage tool fetches whatever URL the model hands it, so the connection
+# enforces a destination policy rather than trusting the argument: a prompt
+# that says "read http://169.254.169.254/latest/meta-data/" would otherwise
+# make the worker fetch cloud credentials and hand them back as research
+# (AGNT5-1165, the Python port of the Go fix in AGNT5-1160).
+#
+# The policy lives in the connection's _new_conn, not in a check before the
+# request: the hostname is resolved exactly once, every address is validated,
+# and the socket goes to one of those addresses. Validating first and letting
+# the pool resolve again would leave a window for DNS rebinding -- a public
+# answer for the check, a private one for the connection. Redirects go through
+# the same pool, so every hop is held to the same rule.
+
+MAX_WEBPAGE_BYTES = 2 * 1024 * 1024  # a page is read up to here, then cut
+MAX_REDIRECTS = 5
+
+
+def is_private_address(ip: str) -> bool:
+    """True for anything that is the machine or its network rather than the public internet.
+
+    Link-local covers the cloud metadata endpoints (169.254.169.254 and fd00:ec2::254).
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # unparseable is not something to connect to
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_multicast
+        or addr.is_unspecified
+        or addr.is_reserved
+    )
+
+
+def resolve_public_addresses(host: str, port: int) -> list[str]:
+    """Resolve host once and refuse if any answer is private.
+
+    Rejecting on any private answer, rather than skipping it, closes the
+    mixed-answer variant of rebinding where a public address is offered
+    alongside a private one.
+    """
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as e:
+        raise requests.ConnectionError(f"could not resolve {host}: {e}") from e
+    addresses = []
+    for info in infos:
+        ip = info[4][0]
+        if is_private_address(ip):
+            raise requests.ConnectionError(
+                f"refusing to connect to {host}: it resolves to the private address {ip}"
+            )
+        if ip not in addresses:
+            addresses.append(ip)
+    if not addresses:
+        raise requests.ConnectionError(f"{host} resolved to no addresses")
+    return addresses
+
+
+class _PublicOnlyConnectionMixin:
+    """Dial only an address that passed the policy, in the same resolution."""
+
+    def _new_conn(self):
+        addresses = resolve_public_addresses(self._dns_host, self.port)
+        last_error: Exception | None = None
+        for ip in addresses:
+            try:
+                # An IP literal makes create_connection skip DNS, so the socket
+                # goes to the address that was validated and nothing else.
+                return create_connection(
+                    (ip, self.port),
+                    timeout=self.timeout,
+                    source_address=self.source_address,
+                    socket_options=self.socket_options,
+                )
+            except OSError as e:
+                last_error = e
+        raise last_error if last_error else OSError(f"could not connect to {self._dns_host}")
+
+
+class PublicOnlyHTTPConnection(_PublicOnlyConnectionMixin, HTTPConnection):
+    pass
+
+
+class PublicOnlyHTTPSConnection(_PublicOnlyConnectionMixin, HTTPSConnection):
+    # TLS still verifies against self.host (the name), not the dialed address.
+    pass
+
+
+class PublicOnlyHTTPConnectionPool(HTTPConnectionPool):
+    ConnectionCls = PublicOnlyHTTPConnection
+
+
+class PublicOnlyHTTPSConnectionPool(HTTPSConnectionPool):
+    ConnectionCls = PublicOnlyHTTPSConnection
+
+
+class PublicOnlyAdapter(HTTPAdapter):
+    """A requests adapter whose every connection, redirects included, is policed."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = {
+            "http": PublicOnlyHTTPConnectionPool,
+            "https": PublicOnlyHTTPSConnectionPool,
+        }
+
+
+def public_only_session() -> requests.Session:
+    session = requests.Session()
+    session.max_redirects = MAX_REDIRECTS
+    # No proxies from the environment: a proxy would connect on the worker's
+    # behalf and the address policy would never see the real destination.
+    session.trust_env = False
+    adapter = PublicOnlyAdapter()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def check_research_url(url: str) -> str | None:
+    """Return a refusal reason for anything but an http(s) URL with a host."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"unsupported URL scheme {parsed.scheme!r}: only http and https are fetched"
+    if not parsed.hostname:
+        return "URL has no host"
+    return None
+
+
+def read_capped(response: requests.Response, limit: int = MAX_WEBPAGE_BYTES) -> bytes:
+    """Read at most `limit` bytes of a streamed response. A large or endless
+    page is otherwise read whole before parsing."""
+    chunks = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=64 * 1024):
+        if not chunk:
+            continue
+        room = limit - total
+        if len(chunk) >= room:
+            chunks.append(chunk[:room])
+            response.close()
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
 
 
 @tool(auto_schema=True)
@@ -25,15 +185,23 @@ async def fetch_webpage_tool(ctx: Context, url: str) -> str:
 
     headers = {"User-Agent": "Mozilla/5.0 (AGNT5-DeepResearch/1.0)"}
 
+    if (refusal := check_research_url(url)) is not None:
+        ctx.logger.error(f"Refused webpage fetch for {url[:100]}: {refusal}")
+        return f"Refused to fetch {url}: {refusal}"
+
     try:
-        response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
-        response.raise_for_status()
+        with public_only_session() as session:
+            response = session.get(url, headers=headers, timeout=30, stream=True)
+            response.raise_for_status()
 
-        content_type = response.headers.get("content-type", "").lower()
-        if "text/html" not in content_type:
-            return f"Content type {content_type} is not supported for URL: {url}"
+            content_type = response.headers.get("content-type", "").lower()
+            if "text/html" not in content_type:
+                response.close()
+                return f"Content type {content_type} is not supported for URL: {url}"
 
-        soup = BeautifulSoup(response.content, "html.parser")
+            body = read_capped(response)
+
+        soup = BeautifulSoup(body, "html.parser")
 
         # Remove unwanted elements
         for element in soup(
@@ -100,9 +268,12 @@ async def fetch_webpage_tool(ctx: Context, url: str) -> str:
     except requests.Timeout:
         ctx.logger.error(f"Timeout fetching {url}")
         return f"Timeout error: Request timed out while fetching content from {url}"
-    except requests.ConnectionError:
-        ctx.logger.error(f"Connection error for {url}")
-        return f"Connection error: Failed to connect to {url}"
+    except requests.ConnectionError as e:
+        # The reason travels in the exception -- including the destination
+        # policy's refusal -- and the model needs it to stop retrying a URL
+        # that will never be fetched.
+        ctx.logger.error(f"Connection error for {url}: {e}")
+        return f"Connection error: Failed to connect to {url}: {e}"
     except requests.RequestException as e:
         ctx.logger.error(f"HTTP error fetching {url}: {e}")
         return f"HTTP error fetching {url}: {str(e)}"

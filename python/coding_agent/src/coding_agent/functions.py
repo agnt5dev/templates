@@ -100,6 +100,44 @@ def _code_outside_tests(code: str) -> str:
     return "\n".join(l.rstrip() for i, l in enumerate(lines) if i not in inside and l.strip())
 
 
+def _still_asserts(code: str, test_name: str) -> bool:
+    """Report whether a test still claims anything.
+
+    A flagged test may be corrected, not neutered: rewriting it to ``pass`` or
+    ``assert True`` turns a failing suite green while the code stays broken.
+    The docstring below has always promised this file prevents that; nothing
+    checked it (AGNT5-1160).
+
+    Uses the AST rather than text so ``assert`` inside a string or comment does
+    not count, and a vacuous constant assertion is recognised for what it is.
+    """
+    for node in ast.walk(ast.parse(code)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != test_name:
+            continue
+        for stmt in ast.walk(node):
+            if isinstance(stmt, ast.Assert):
+                # `assert True` / `assert 1` hold whatever the code does.
+                if isinstance(stmt.test, ast.Constant) and bool(stmt.test.value):
+                    continue
+                return True
+            if isinstance(stmt, ast.Raise):
+                return True
+            if isinstance(stmt, ast.Call):
+                func = stmt.func
+                name = getattr(func, "attr", None) or getattr(func, "id", "")
+                if name.startswith("assert") or name in {"raises", "fail"}:
+                    return True
+            if isinstance(stmt, ast.With):
+                for item in stmt.items:
+                    call = item.context_expr
+                    if isinstance(call, ast.Call):
+                        name = getattr(call.func, "attr", None) or getattr(call.func, "id", "")
+                        if name in {"raises", "assertRaises"}:
+                            return True
+        return False
+    return False
+
+
 def _check_test_repair(original: str, candidate: str, targets: set[str]) -> tuple[bool, str, list[str]]:
     """Accept a repaired suite only if it corrects flagged tests and nothing else.
 
@@ -123,6 +161,9 @@ def _check_test_repair(original: str, candidate: str, targets: set[str]) -> tupl
         return False, "changed code outside the flagged tests", []
     if not changed:
         return False, "no flagged test was changed", []
+    for name in sorted(changed):
+        if not _still_asserts(candidate, name):
+            return False, f"repaired test {name} no longer asserts anything", []
     return True, "", sorted(changed)
 
 
@@ -336,20 +377,45 @@ async def code_sync_node(
             )
 
     try:
-        if sandbox_id:
-            ctx.logger.info(f"Using existing sandbox: {sandbox_id}")
-        else:
-            ctx.logger.info("Creating new E2B sandbox")
-            result = await E2BSandboxTools.create_sandbox(ctx, sandbox_id=sandbox_id)
-            sandbox_id = result.get("sandbox_id")
-            if not sandbox_id:
-                raise ValueError("Failed to create sandbox - no ID returned")
-            ctx.logger.info(f"✅ Created sandbox: {sandbox_id}")
+        # create_sandbox reconnects to an existing ID and falls back to a new
+        # sandbox when it cannot -- but this node only called it when there
+        # was no ID, so an expired sandbox (they live 300s; this workflow
+        # retries for longer) was reused forever and every later sync failed
+        # against one that no longer existed. It is called every time now, and
+        # the ID that comes back is the live one (AGNT5-1165).
+        result = await E2BSandboxTools.create_sandbox(ctx, sandbox_id=sandbox_id)
+        sandbox_id = result.get("sandbox_id") if isinstance(result, dict) else None
+        if not sandbox_id:
+            raise ValueError(f"Failed to create sandbox: {result.get('error') if isinstance(result, dict) else result}")
 
-        ctx.logger.debug("Writing main.py...")
-        await E2BSandboxTools.write_file(ctx, sandbox_id=sandbox_id, path="main.py", content=main_code)
-        ctx.logger.debug("Writing test.py...")
-        await E2BSandboxTools.write_file(ctx, sandbox_id=sandbox_id, path="test.py", content=test_code)
+        async def write_both(target: str) -> str | None:
+            """Write both files; return the first error, or None.
+
+            write_file reports through its return string -- "File written
+            successfully: <path>" or "Error writing file <path>: <reason>" --
+            and never raises, which is why a dead sandbox went unnoticed here.
+            """
+            for path, content in (("main.py", main_code), ("test.py", test_code)):
+                ctx.logger.debug(f"Writing {path}...")
+                written = await E2BSandboxTools.write_file(ctx, sandbox_id=target, path=path, content=content)
+                if isinstance(written, str) and written.startswith("Error"):
+                    return written
+                if isinstance(written, dict) and written.get("error"):
+                    return str(written["error"])
+            return None
+
+        error = await write_both(sandbox_id)
+        if error:
+            ctx.logger.warning(f"Sandbox write failed ({error}), recreating the sandbox")
+            result = await E2BSandboxTools.create_sandbox(ctx, sandbox_id=None)
+            replacement = result.get("sandbox_id") if isinstance(result, dict) else None
+            if not replacement:
+                return SyncResult(success=False, sandbox_id=sandbox_id,
+                                  message=f"sandbox write failed ({error}) and a replacement could not be created")
+            sandbox_id = replacement
+            error = await write_both(sandbox_id)
+            if error:
+                return SyncResult(success=False, sandbox_id=sandbox_id, message=error)
 
         ctx.logger.info("✅ Code and tests synced successfully")
         return SyncResult(success=True, sandbox_id=sandbox_id, message="Code and tests synced successfully")

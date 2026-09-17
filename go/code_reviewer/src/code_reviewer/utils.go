@@ -128,10 +128,20 @@ func GenerateStructured[T any](ctx *agnt5.Context, model agnt5.LanguageModel, sy
 		}
 
 		var result T
-		if err := json.Unmarshal([]byte(extractJSON(resp.Content)), &result); err == nil {
-			return result, nil
-		} else {
+		if err := json.Unmarshal([]byte(extractJSON(resp.Content)), &result); err != nil {
 			lastErr = err
+		} else if validator, ok := any(result).(structuredResult); ok {
+			// Syntactically valid JSON is not an answer: "{}" unmarshals
+			// cleanly into a zero-value review that reads as "nothing to
+			// report" (AGNT5-1160). Shapes that can say whether they were
+			// filled in are asked; ones that cannot are taken as before.
+			if err := validator.Validate(); err != nil {
+				lastErr = err
+			} else {
+				return result, nil
+			}
+		} else {
+			return result, nil
 		}
 
 		messages = append(messages,
