@@ -13,6 +13,11 @@ from code_reviewer.functions import (
 )
 from code_reviewer.prompts import CONTEXT_BUILDER_USER_PROMPT
 
+# Bounds the per-file model calls a single review makes at once. Large enough
+# to keep a normal PR fast, small enough that a 200-file PR does not open 200
+# concurrent requests.
+MAX_CONCURRENT_REVIEWS = 6
+
 PR_SIZE_WARNING_THRESHOLD = 30
 
 
@@ -107,13 +112,18 @@ async def code_reviewer_workflow(
         ticket_context=ticket_context,
     )
 
-    if file_review_steps:
-        all_results = await ctx.parallel(*file_review_steps, security_step)
-        file_reviews = list(all_results[:-1])
-        security_review = all_results[-1]
-    else:
-        security_review = await security_step
-        file_reviews = []
+    # At most MAX_CONCURRENT_REVIEWS model calls in flight: ctx.parallel over
+    # every file at once opened one request per file, and a large PR
+    # collected rate-limit errors instead of reviews. The security review is
+    # one more job in the same pool, not a run outside the limit
+    # (AGNT5-1165). ctx.step returns an unstarted coroutine, so nothing runs
+    # until its batch is awaited.
+    jobs = [*file_review_steps, security_step]
+    results: list = []
+    for start in range(0, len(jobs), MAX_CONCURRENT_REVIEWS):
+        results.extend(await ctx.parallel(*jobs[start : start + MAX_CONCURRENT_REVIEWS]))
+    file_reviews = list(results[:-1])
+    security_review = results[-1]
 
     ctx.state.set("file_reviews", file_reviews)
     ctx.state.set("security_review", security_review)

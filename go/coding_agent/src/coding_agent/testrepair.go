@@ -120,16 +120,151 @@ func codeOutsideTests(code string) string {
 	return strings.Join(kept, "\n")
 }
 
-// validatePythonSource catches the shapes a model actually returns wrong:
-// nothing, or a markdown fence that survived cleaning.
+// validatePythonSource rejects candidates that are not plausible Python.
+//
+// Go cannot parse Python, so this is structural where the Python template uses
+// ast.parse -- the same template, stricter in one language than the other
+// (AGNT5-1160). The checks run on the code with string and comment contents
+// removed, so a fence or a bracket inside a string is data, not syntax: a
+// text-processing task's tests legitimately contain both. What is caught is
+// what a truncated or malformed model response actually looks like: nothing,
+// a fence outside any string, an unterminated string, mismatched brackets. A
+// syntax error that slips through still fails when the suite runs in the
+// sandbox; checking here keeps a broken candidate from replacing working tests.
 func validatePythonSource(code string) error {
 	if strings.TrimSpace(code) == "" {
 		return fmt.Errorf("code is empty")
 	}
-	if strings.HasPrefix(strings.TrimSpace(code), "```") {
+	stripped, err := stripPythonLiterals(code)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(stripped, "```") {
 		return fmt.Errorf("code still contains markdown fence markers")
 	}
+	if err := checkBrackets(stripped); err != nil {
+		return err
+	}
+	if len(testFunctionSpans(code)) == 0 {
+		return fmt.Errorf("code contains no test functions")
+	}
 	return nil
+}
+
+// stripPythonLiterals returns the code with every comment removed and every
+// string literal's contents replaced by an empty literal, so later checks see
+// only syntax. Newlines are kept so line-based logic still lines up. An
+// unterminated string is an error: that is the truncated-response shape the
+// old triple-quote count was trying to catch, without the false positive on a
+// string that merely contains one.
+func stripPythonLiterals(code string) (string, error) {
+	var out strings.Builder
+	runes := []rune(code)
+	for i := 0; i < len(runes); {
+		r := runes[i]
+		switch {
+		case r == '#':
+			for i < len(runes) && runes[i] != '\n' {
+				i++
+			}
+		case r == '\'' || r == '"':
+			triple := i+2 < len(runes) && runes[i+1] == r && runes[i+2] == r
+			quoteLen := 1
+			if triple {
+				quoteLen = 3
+			}
+			out.WriteString(strings.Repeat(string(r), quoteLen*2)) // an empty literal of the same kind
+			i += quoteLen
+			closed := false
+			for i < len(runes) {
+				if runes[i] == '\\' {
+					i += 2
+					continue
+				}
+				if runes[i] == '\n' {
+					if !triple {
+						break // a single-quoted string cannot span lines
+					}
+					out.WriteRune('\n')
+				}
+				if runes[i] == r && (!triple || (i+2 < len(runes) && runes[i+1] == r && runes[i+2] == r)) {
+					i += quoteLen
+					closed = true
+					break
+				}
+				i++
+			}
+			if !closed {
+				return "", fmt.Errorf("code has an unterminated string literal")
+			}
+		default:
+			out.WriteRune(r)
+			i++
+		}
+	}
+	return out.String(), nil
+}
+
+// checkBrackets verifies delimiters open and close in matching pairs. A plain
+// count let `f([)]` through because the totals cancelled; the stack does not.
+func checkBrackets(stripped string) error {
+	closers := map[rune]rune{')': '(', ']': '[', '}': '{'}
+	var stack []rune
+	for _, r := range stripped {
+		switch r {
+		case '(', '[', '{':
+			stack = append(stack, r)
+		case ')', ']', '}':
+			if len(stack) == 0 || stack[len(stack)-1] != closers[r] {
+				return fmt.Errorf("code has mismatched brackets near %q, so it is truncated or malformed", string(r))
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(stack) > 0 {
+		return fmt.Errorf("code has %d unclosed bracket(s), so it is truncated or malformed", len(stack))
+	}
+	return nil
+}
+
+// vacuousAssertion matches an assert whose condition is a constant that always
+// holds, with or without a message: `assert True`, `assert 1, "still fine"`.
+// `assert True == predicate()` is not vacuous and does not match.
+var vacuousAssertion = regexp.MustCompile(`^assert\s*\(?\s*(True|1|not\s+False)\s*\)?\s*(,.*)?$`)
+
+// assertionCall matches the other ways a test states an expectation.
+var assertionCall = regexp.MustCompile(`(^|[^\w.])(pytest\.raises|self\.assert[A-Za-z]+|self\.fail|raise)\b`)
+
+// stillAsserts reports whether a test body claims anything at all. A test
+// rewritten to `pass`, `return` or `assert True` turns a failing suite green
+// without fixing the code -- the exact move the package comment above promises
+// this file prevents, and did not (AGNT5-1160).
+//
+// It looks at the code with strings and comments stripped, so
+// `pass  # assert old == 5` is seen for the empty test it is, and an assertion
+// in a docstring counts for nothing.
+func stillAsserts(testSource string) bool {
+	stripped, err := stripPythonLiterals(testSource)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(stripped, "\n") {
+		stmt := strings.TrimSpace(line)
+		if strings.HasPrefix(stmt, "assert") && (len(stmt) == len("assert") || !isIdentChar(rune(stmt[len("assert")]))) {
+			if !vacuousAssertion.MatchString(stmt) {
+				return true
+			}
+			continue
+		}
+		if assertionCall.MatchString(stmt) {
+			return true
+		}
+	}
+	return false
+}
+
+func isIdentChar(r rune) bool {
+	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
 // checkTestRepair accepts a repaired suite only if it corrects flagged tests
@@ -177,6 +312,15 @@ func checkTestRepair(original, candidate string, targets map[string]bool) (bool,
 	if len(changed) == 0 {
 		return false, "no flagged test was changed", nil
 	}
+	// A flagged test may be corrected, not neutered: rewriting it to `pass` or
+	// `assert True` makes the suite green while the code stays broken. The
+	// package comment above has always promised this; nothing checked it
+	// (AGNT5-1160).
 	sort.Strings(changed)
+	for _, name := range changed {
+		if !stillAsserts(after[name]) {
+			return false, fmt.Sprintf("repaired test %s no longer asserts anything", name), nil
+		}
+	}
 	return true, "", changed
 }

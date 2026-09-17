@@ -62,10 +62,15 @@ func GetWeatherInteractiveWorkflow(ctx *agnt5.Context, in GetWeatherInteractiveI
 		return GetWeatherInteractiveOutput{}, err
 	}
 
-	if err := conversation.Append(ctx, agnt5.MemoryMessage{Role: "user", Content: in.Message}); err != nil {
-		return GetWeatherInteractiveOutput{}, err
-	}
-	if err := conversation.Append(ctx, agnt5.MemoryMessage{Role: "assistant", Content: result.Response}); err != nil {
+	// Recording the turn is idempotent by inspection, not by hoping the Step
+	// runs once: Step execution is at least once, so a restart between the
+	// user append and the assistant append, or before the Step's completion
+	// is journaled, would otherwise write the user message a second time
+	// (AGNT5-1160). The history is read back and only what is missing is
+	// appended, so any number of replays converge on one user/assistant pair.
+	if _, err := agnt5.Step(ctx, "record_weather_agent_turn", func(context.Context) (struct{}, error) {
+		return struct{}{}, recordTurn(ctx, conversation, in.Message, result.Response)
+	}); err != nil {
 		return GetWeatherInteractiveOutput{}, err
 	}
 
@@ -78,4 +83,27 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// recordTurn appends the user message and the assistant reply unless the
+// tail of the history already holds them, so a replayed append changes
+// nothing.
+func recordTurn(ctx *agnt5.Context, conversation *agnt5.ConversationMemory, userMessage, reply string) error {
+	history, err := conversation.Messages(ctx)
+	if err != nil {
+		return err
+	}
+	n := len(history)
+	userRecorded := n >= 1 && history[n-1].Role == "user" && history[n-1].Content == userMessage
+	pairRecorded := n >= 2 && history[n-2].Role == "user" && history[n-2].Content == userMessage &&
+		history[n-1].Role == "assistant" && history[n-1].Content == reply
+	if pairRecorded {
+		return nil
+	}
+	if !userRecorded {
+		if err := conversation.Append(ctx, agnt5.MemoryMessage{Role: "user", Content: userMessage}); err != nil {
+			return err
+		}
+	}
+	return conversation.Append(ctx, agnt5.MemoryMessage{Role: "assistant", Content: reply})
 }

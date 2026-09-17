@@ -1,6 +1,11 @@
 // Data models for structured review output.
 package code_reviewer
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Severity levels for a Finding.
 const (
 	SeverityCritical = "critical"
@@ -77,4 +82,61 @@ type TicketData struct {
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url,omitempty"`
 	Reason      string `json:"reason,omitempty"` // set when Available is false
+}
+
+// structuredResult is implemented by the shapes GenerateStructured returns.
+// json.Unmarshal succeeds on "{}", so without this a model that answered with
+// an empty object produced a zero-value review that read as "no findings"
+// (AGNT5-1160).
+type structuredResult interface {
+	Validate() error
+}
+
+// Validate reports whether the model answered at all. Only the empty shape
+// is rejected: a response carrying findings is an answer even when the
+// summary is missing, and discarding real findings over absent metadata
+// would hide exactly the issues the review exists to surface. A clean file
+// legitimately has no findings, so for that case the summary is the evidence.
+func (r FileReview) Validate() error {
+	if len(r.Findings) == 0 && strings.TrimSpace(r.Summary) == "" {
+		return fmt.Errorf("file review has neither findings nor a summary")
+	}
+	return nil
+}
+
+// Validate is the same test for a security pass. A missing overall_risk with
+// findings present is filled in from their severities by RiskOrFromFindings;
+// it is not a reason to throw the findings away.
+func (r SecurityReview) Validate() error {
+	if len(r.Findings) == 0 && strings.TrimSpace(r.Summary) == "" && strings.TrimSpace(r.OverallRisk) == "" {
+		return fmt.Errorf("security review has neither findings, a summary nor an overall_risk")
+	}
+	return nil
+}
+
+// RiskOrFromFindings returns the model's overall_risk, or derives one from the
+// worst finding when the model left it out, so a batch that reported real
+// findings still counts toward the merged rating.
+func (r SecurityReview) RiskOrFromFindings() string {
+	if risk := strings.TrimSpace(r.OverallRisk); risk != "" {
+		return risk
+	}
+	worst := "low"
+	for _, f := range r.Findings {
+		var level string
+		switch strings.ToLower(f.Severity) {
+		case SeverityCritical:
+			level = "critical"
+		case SeverityMajor:
+			level = "high"
+		case SeverityMinor:
+			level = "medium"
+		default:
+			continue
+		}
+		if riskRank(level) > riskRank(worst) {
+			worst = level
+		}
+	}
+	return worst
 }

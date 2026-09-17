@@ -69,6 +69,40 @@ func envdFilesURL(host, path string) string {
 	return host + "/files?" + url.Values{"path": {path}, "username": {e2bSandboxUser}}.Encode()
 }
 
+// maxCommandOutputBytes bounds each of stdout and stderr for a single sandbox
+// command. Generous enough for a test run's real output, small enough that a
+// runaway loop cannot grow the worker's memory until it is killed.
+const maxCommandOutputBytes = 256 << 10 // 256 KiB
+
+const truncationMarker = "\n... [output truncated]"
+
+// cappedOutput collects a stream up to maxCommandOutputBytes, marker
+// included, and marks the truncation the moment any byte is dropped. The
+// marker's space is reserved up front, so a stream that lands exactly on the
+// cap is still marked when more arrives, and the total never exceeds the cap.
+type cappedOutput struct {
+	buf       bytes.Buffer
+	truncated bool
+}
+
+func (c *cappedOutput) Write(chunk []byte) {
+	if c.truncated {
+		return
+	}
+	room := maxCommandOutputBytes - len(truncationMarker) - c.buf.Len()
+	if len(chunk) <= room {
+		c.buf.Write(chunk)
+		return
+	}
+	if room > 0 {
+		c.buf.Write(chunk[:room])
+	}
+	c.buf.WriteString(truncationMarker)
+	c.truncated = true
+}
+
+func (c *cappedOutput) String() string { return c.buf.String() }
+
 // createSandbox creates a new E2B sandbox and returns its ID.
 func (c *e2bClient) createSandbox(ctx context.Context) (string, error) {
 	body, _ := json.Marshal(map[string]any{
@@ -222,7 +256,7 @@ func (c *e2bClient) runCommand(ctx context.Context, sandboxID, command string, t
 		return e2bCommandResult{}, fmt.Errorf("sandbox process start failed (HTTP %d): %s", resp.StatusCode, respBody)
 	}
 
-	var stdout, stderr bytes.Buffer
+	var stdout, stderr cappedOutput
 	exitCode, ended := 0, false
 	header := make([]byte, 5)
 	for {
@@ -264,6 +298,9 @@ func (c *e2bClient) runCommand(ctx context.Context, sandboxID, command string, t
 			return e2bCommandResult{}, fmt.Errorf("decoding sandbox process event: %w", err)
 		}
 		if d := m.Event.Data; d != nil {
+			// Capped: generated code under test can print without bound, and
+			// every chunk was being appended to a buffer the worker holds for
+			// the life of the command (AGNT5-1160).
 			stdout.Write(d.Stdout)
 			stderr.Write(d.Stderr)
 		}

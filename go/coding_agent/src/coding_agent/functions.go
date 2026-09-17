@@ -224,11 +224,31 @@ func codeSyncNode(ctx *agnt5.Context, e2b *e2bClient, mainCode, testCode, sandbo
 		ctx.Logger().Info("Using existing sandbox", "sandbox_id", sandboxID)
 	}
 
-	if err := e2b.writeFile(ctx, sandboxID, "main.py", mainCode); err != nil {
-		return SyncResult{Success: false, SandboxID: sandboxID, Message: err.Error()}, nil
+	// A sandbox is created with a 300s timeout, and this workflow retries for
+	// far longer than that. Once it expires the ID stays in the state and every
+	// later sync failed against a sandbox that no longer exists, so a run that
+	// took too long could never recover (AGNT5-1160). A failed write -- of
+	// either file -- is taken as "the sandbox is gone": a fresh one costs a
+	// few seconds, and both files are written from scratch anyway. The ID that
+	// comes back is always the one the files are in, so the workflow state
+	// never keeps pointing at a dead sandbox.
+	writeBoth := func(id string) error {
+		if err := e2b.writeFile(ctx, id, "main.py", mainCode); err != nil {
+			return err
+		}
+		return e2b.writeFile(ctx, id, "test.py", testCode)
 	}
-	if err := e2b.writeFile(ctx, sandboxID, "test.py", testCode); err != nil {
-		return SyncResult{Success: false, SandboxID: sandboxID, Message: err.Error()}, nil
+	if err := writeBoth(sandboxID); err != nil {
+		ctx.Logger().Warn("Sandbox write failed, recreating the sandbox", "sandbox_id", sandboxID, "error", err)
+		replacement, createErr := e2b.createSandbox(ctx)
+		if createErr != nil {
+			return SyncResult{Success: false, Message: fmt.Sprintf("sandbox write failed (%v) and a replacement could not be created: %v", err, createErr)}, nil
+		}
+		sandboxID = replacement
+		ctx.Logger().Info("Recreated sandbox", "sandbox_id", sandboxID)
+		if err := writeBoth(sandboxID); err != nil {
+			return SyncResult{Success: false, SandboxID: sandboxID, Message: err.Error()}, nil
+		}
 	}
 
 	ctx.Logger().Info("Code and tests synced successfully")

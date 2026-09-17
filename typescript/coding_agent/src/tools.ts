@@ -19,6 +19,18 @@ import type { Context } from '@agnt5/sdk';
 
 const apiKey = () => process.env.E2B_API_KEY;
 
+// Bounds each of stdout and stderr for a single sandbox command. Generous
+// enough for a test run's real output, small enough that a runaway loop cannot
+// grow the worker's memory until it is killed.
+export const MAX_COMMAND_OUTPUT_BYTES = 256 * 1024;
+const TRUNCATION_MARKER = '\n... [output truncated]';
+
+/** Keep the head of an oversized stream and say that the rest was dropped. */
+export function capOutput(text: string): string {
+  if (text.length <= MAX_COMMAND_OUTPUT_BYTES) return text;
+  return text.slice(0, MAX_COMMAND_OUTPUT_BYTES - TRUNCATION_MARKER.length) + TRUNCATION_MARKER;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 async function connect(sandboxId: string): Promise<Sandbox> {
@@ -179,6 +191,11 @@ export async function runCommandImpl(
       error = String(e);
       ctx.logger.debug(`Command failed with exit code ${exit_code}`);
     }
+
+    // Capped: generated code under test can print without bound, and the whole
+    // of it was handed back to the worker (AGNT5-1165).
+    stdout = capOutput(stdout);
+    stderr = capOutput(stderr);
 
     const execution_time_ms = Date.now() - start;
 

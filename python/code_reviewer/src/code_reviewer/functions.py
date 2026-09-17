@@ -442,7 +442,10 @@ async def review_file_node(
         except Exception:
             pass
 
-    if result is None:
+    # "{}" parses as JSON and would build a zero-value review reading as
+    # "nothing to report"; it is treated as no answer, the same as None.
+    review = FileReview(**result) if isinstance(result, dict) else result
+    if review is None or review.is_empty():
         ctx.logger.warning(f"⚠️ No structured output for {filename}, using empty review")
         return FileReview(
             filename=filename,
@@ -451,7 +454,8 @@ async def review_file_node(
             summary="Structured output unavailable for this file.",
         ).model_dump()
 
-    review = FileReview(**result) if isinstance(result, dict) else result
+    if not review.filename:
+        review.filename = filename
     ctx.logger.info(f"✅ {filename}: {len(review.findings)} findings")
     return review.model_dump()
 
@@ -524,6 +528,15 @@ async def security_review_node(
         ).model_dump()
 
     review = SecurityReview(**result) if isinstance(result, dict) else result
+    if review is None or review.is_empty():
+        ctx.logger.warning("⚠️ No structured output for security review, using empty result")
+        return SecurityReview(
+            findings=[],
+            overall_risk="low",
+            summary="Structured output unavailable for security review.",
+        ).model_dump()
+    # A missing rating is derived from the findings rather than discarding them.
+    review.overall_risk = review.risk_or_from_findings()
     ctx.logger.info(f"🔒 Security review done: {len(review.findings)} findings, risk={review.overall_risk}")
     return review.model_dump()
 

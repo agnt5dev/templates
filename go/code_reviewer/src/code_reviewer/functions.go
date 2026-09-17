@@ -214,8 +214,8 @@ Focus exclusively on security. Return findings (empty list if no security issues
 			continue
 		}
 		merged.Findings = append(merged.Findings, review.Findings...)
-		if riskRank(review.OverallRisk) > riskRank(merged.OverallRisk) {
-			merged.OverallRisk = review.OverallRisk
+		if risk := review.RiskOrFromFindings(); riskRank(risk) > riskRank(merged.OverallRisk) {
+			merged.OverallRisk = risk
 		}
 		if s := strings.TrimSpace(review.Summary); s != "" {
 			summaries = append(summaries, s)
