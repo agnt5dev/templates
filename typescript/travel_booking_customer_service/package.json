@@ -10,7 +10,7 @@
     "start": "npx tsx app.ts"
   },
   "dependencies": {
-    "@agnt5/sdk": "^0.10.0"
+    "@agnt5/sdk": "^0.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
