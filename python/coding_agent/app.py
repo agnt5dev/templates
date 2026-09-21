@@ -45,11 +45,6 @@ async def main():
         service_name="coding-agent",
         service_version="1.0.0",
         auto_register=True,
-        # Scan the package itself so discovery imports modules under their
-        # installed name (coding_agent.*), not src.coding_agent.*; a second
-        # import path registers every @function twice and the collision drops
-        # the modules that import them (AGNT5-1189).
-        auto_register_paths=["src/coding_agent"],
         metadata={
             "description": "AI-powered coding agent with test-driven development",
             "capabilities": "planning,coding,testing,documentation",

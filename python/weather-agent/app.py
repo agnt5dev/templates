@@ -32,11 +32,6 @@ async def main():
         service_name=config.SERVICE_NAME,
         service_version=config.SERVICE_VERSION,
         auto_register=True,
-        # Scan the package itself so discovery imports modules under their
-        # installed name (weather_agent.*), not src.weather_agent.*; a second
-        # import path registers every @function twice and the collision drops
-        # the modules that import them (AGNT5-1189).
-        auto_register_paths=["src/weather_agent"],
         metadata={
             "description": "Simple weather agent for fetching weather data",
         },
