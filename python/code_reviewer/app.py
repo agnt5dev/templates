@@ -27,11 +27,6 @@ async def main():
         service_name="code-reviewer",
         service_version="2.0.0",
         auto_register=True,
-        # Scan the package itself so discovery imports modules under their
-        # installed name (code_reviewer.*), not src.code_reviewer.*; a second
-        # import path registers every @function twice and the collision drops
-        # the modules that import them (AGNT5-1189).
-        auto_register_paths=["src/code_reviewer"],
         metadata={
             "description": (
                 "AI-powered code reviewer that analyzes pull requests "
