@@ -1,6 +1,6 @@
 {
   "name": "quickstart",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "type": "module",
   "private": true,
   "engines": {
@@ -11,7 +11,7 @@
     "start": "npx tsx app.ts"
   },
   "dependencies": {
-    "@agnt5/sdk": "^0.10.2"
+    "@agnt5/sdk": "^0.10.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
