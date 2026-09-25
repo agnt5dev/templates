@@ -2,7 +2,7 @@ module weather-agent
 
 go 1.26.5
 
-require github.com/agnt5dev/sdk-go v0.10.2
+require github.com/agnt5dev/sdk-go v0.10.3
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
