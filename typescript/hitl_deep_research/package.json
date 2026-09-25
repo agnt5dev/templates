@@ -1,6 +1,6 @@
 {
   "name": "hitl-deep-research",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "private": true,
   "engines": {
@@ -10,7 +10,7 @@
     "start": "npx tsx app.ts"
   },
   "dependencies": {
-    "@agnt5/sdk": "^0.10.4"
+    "@agnt5/sdk": "^0.10.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
