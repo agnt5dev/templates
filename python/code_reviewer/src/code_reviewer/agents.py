@@ -14,8 +14,7 @@ from code_reviewer.prompts import (
 
 context_builder_agent = Agent(
     name="context_builder",
-    model="openai/gpt-6-luna",
-    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
+    model="openai/gpt-4.1-mini",
     instructions=CONTEXT_BUILDER_PROMPT,
     tools=[
         pr_fetcher,
@@ -23,6 +22,7 @@ context_builder_agent = Agent(
         linear_ticket_fetcher,
         detect_ticket_source,
     ],
+    temperature=0.0,
     max_iterations=3,  # Reduced from 5 to limit conversation history
     max_tokens=4096
 )
@@ -30,10 +30,10 @@ context_builder_agent = Agent(
 
 reviewer_agent = Agent(
     name="code_reviewer",
-    model="openai/gpt-6-luna",
-    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
+    model="openai/gpt-4.1-mini",
     instructions=CODE_REVIEWER_PROMPT,
     tools=[pr_fetcher, jira_ticket_fetcher, linear_ticket_fetcher],
+    temperature=0.0,
     max_iterations=3,  # Reduced from 5 to limit conversation history
     max_tokens=4096
 )

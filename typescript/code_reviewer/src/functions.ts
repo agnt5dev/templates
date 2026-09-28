@@ -15,7 +15,7 @@ import {
   REPORT_SYNTHESIZER_USER_PROMPT,
 } from './prompts/index.js';
 
-const MODEL = 'openai/gpt-6-luna';
+const MODEL = 'openai/gpt-4.1-mini';
 
 // ── Language / Framework detection maps ─────────────────────────────────────
 
@@ -172,6 +172,7 @@ export const synthesizeReviewReport = fn('synthesize_review_report')
           content: SYNTHESIZER_USER_PROMPT.replace('{code_review}', code_review),
         },
       ],
+      config: { temperature: 0 },
     });
 
     ctx.logger.info('Synthesis complete');
@@ -454,6 +455,7 @@ export const reviewFileNode = fn('review_file_node')
           { role: 'user', content: userContent },
         ],
         config: {
+          temperature: 0,
           responseFormat: {
             formatType: 'json_schema',
             schemaName: 'FileReview',
@@ -544,6 +546,7 @@ export const securityReviewNode = fn('security_review_node')
           { role: 'user', content: userContent },
         ],
         config: {
+          temperature: 0,
           responseFormat: {
             formatType: 'json_schema',
             schemaName: 'SecurityReview',
@@ -676,6 +679,7 @@ export const buildReportNode = fn('build_report_node')
           { role: 'system', content: REPORT_SYNTHESIZER_SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
+        config: { temperature: 0 },
       });
 
       ctx.logger.info('Final report built');
