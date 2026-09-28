@@ -5,13 +5,7 @@
  */
 
 import { Agent, LM } from '@agnt5/sdk';
-import type { AgentCallbacks } from '@agnt5/sdk';
 import { searchFlights, searchHotels, createItinerary } from './tools.js';
-
-// gpt-6 rejects any temperature, and @agnt5/sdk sends a default of 0.7, so drop it before each model call.
-const dropTemperature: NonNullable<AgentCallbacks['beforeModel']> = (_ctx, request) => {
-  delete request.config?.temperature;
-};
 
 const TRAVEL_BOOKING_INSTRUCTIONS = `You are a professional travel booking assistant helping customers plan their trips.
 
@@ -124,7 +118,7 @@ export function createTravelBookingAgent(): Agent {
     name: 'travel_booking_agent',
     model,
     modelName: 'openai/gpt-6-luna',
-    callbacks: { beforeModel: dropTemperature },
+    temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
     instructions: TRAVEL_BOOKING_INSTRUCTIONS,
     tools: [searchFlights, searchHotels, createItinerary],
   });

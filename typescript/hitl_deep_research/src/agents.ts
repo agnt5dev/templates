@@ -8,13 +8,7 @@
  */
 
 import { Agent, LM } from '@agnt5/sdk';
-import type { AgentCallbacks } from '@agnt5/sdk';
 import { fetchWebpage, wikipediaSearch } from './tools.js';
-
-// gpt-6 rejects any temperature, and @agnt5/sdk sends a default of 0.7, so drop it before each model call.
-const dropTemperature: NonNullable<AgentCallbacks['beforeModel']> = (_ctx, request) => {
-  delete request.config?.temperature;
-};
 
 const SCOPING_AGENT_INSTRUCTIONS = `You are a research scoping specialist who structures research requests into actionable plans.
 
@@ -113,7 +107,7 @@ export function getScopingAgent(): Agent {
       name: 'ScopingAgent',
       model: LM.openai(),
       modelName: 'openai/gpt-6-luna',
-      callbacks: { beforeModel: dropTemperature },
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: SCOPING_AGENT_INSTRUCTIONS,
     });
   }
@@ -126,7 +120,7 @@ export function getResearchAgent(): Agent {
       name: 'ResearchAgent',
       model: LM.openai(),
       modelName: 'openai/gpt-6-luna',
-      callbacks: { beforeModel: dropTemperature },
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: RESEARCH_AGENT_INSTRUCTIONS,
       tools: [wikipediaSearch, fetchWebpage],
     });
@@ -140,7 +134,7 @@ export function getWritingAgent(): Agent {
       name: 'WritingAgent',
       model: LM.openai(),
       modelName: 'openai/gpt-6-luna',
-      callbacks: { beforeModel: dropTemperature },
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: WRITING_AGENT_INSTRUCTIONS,
     });
   }
