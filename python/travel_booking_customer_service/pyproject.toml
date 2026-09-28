@@ -1,6 +1,6 @@
 [project]
 name = "customer-service-agnt5"
-version = "1.0.9"
+version = "1.0.10"
 description = "Customer service assistant for travel booking, built with AGNT5"
 requires-python = ">=3.11"
 

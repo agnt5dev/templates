@@ -10,7 +10,8 @@ from customer_service.tools import search_flights, search_hotels, create_itinera
 
 travel_booking_agent = Agent(
     name="travel_booking_agent",
-    model="openai/gpt-5-mini",
+    model="openai/gpt-6-luna",
+    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
     instructions="""You are a professional travel booking assistant helping customers plan their trips.
 
 ## Communication Style

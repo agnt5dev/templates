@@ -24,8 +24,8 @@ export function getHistoryTutorAgent(): Agent {
     _historyTutorAgent = new Agent({
       name: 'history_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: `You are a specialized history tutor agent designed to provide comprehensive assistance with historical queries.
 
 Your primary responsibilities:
@@ -59,8 +59,8 @@ export function getMathTutorAgent(): Agent {
     _mathTutorAgent = new Agent({
       name: 'math_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: `You are a specialized mathematics tutor agent designed to provide comprehensive assistance with mathematical problems and concepts.
 
 Your primary responsibilities:
@@ -104,8 +104,8 @@ export function getTutorAgent(): Agent {
     _tutorAgent = new Agent({
       name: 'triage_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: `You are a triage agent that helps students by routing their questions to specialized tutors.
 
 Your role:

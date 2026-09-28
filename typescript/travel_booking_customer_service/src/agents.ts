@@ -117,9 +117,9 @@ export function createTravelBookingAgent(): Agent {
   return new Agent({
     name: 'travel_booking_agent',
     model,
-    modelName: 'openai/gpt-5-mini',
+    modelName: 'openai/gpt-6-luna',
+    temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
     instructions: TRAVEL_BOOKING_INSTRUCTIONS,
     tools: [searchFlights, searchHotels, createItinerary],
-    temperature: 0.2,
   });
 }

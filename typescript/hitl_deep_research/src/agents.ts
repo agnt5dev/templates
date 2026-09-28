@@ -106,9 +106,9 @@ export function getScopingAgent(): Agent {
     _scopingAgent = new Agent({
       name: 'ScopingAgent',
       model: LM.openai(),
-      modelName: 'openai/gpt-4o-mini',
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: SCOPING_AGENT_INSTRUCTIONS,
-      temperature: 0.3,
     });
   }
   return _scopingAgent;
@@ -119,10 +119,10 @@ export function getResearchAgent(): Agent {
     _researchAgent = new Agent({
       name: 'ResearchAgent',
       model: LM.openai(),
-      modelName: 'openai/gpt-4o-mini',
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: RESEARCH_AGENT_INSTRUCTIONS,
       tools: [wikipediaSearch, fetchWebpage],
-      temperature: 0.2,
     });
   }
   return _researchAgent;
@@ -133,9 +133,9 @@ export function getWritingAgent(): Agent {
     _writingAgent = new Agent({
       name: 'WritingAgent',
       model: LM.openai(),
-      modelName: 'openai/gpt-4o-mini',
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: WRITING_AGENT_INSTRUCTIONS,
-      temperature: 0.3,
     });
   }
   return _writingAgent;

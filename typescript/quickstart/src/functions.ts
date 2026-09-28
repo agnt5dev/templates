@@ -68,7 +68,8 @@ export const summarize = fn('summarize').run(
     const agent = new Agent({
       name: 'hn_summarizer',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
+      modelName: 'openai/gpt-6-luna',
+      temperature: 1, // gpt-6 accepts only its default temperature; the SDK would send 0.7
       instructions: SUMMARIZER_PROMPT,
     });
     const result = await agent.run(prompt, ctx);
