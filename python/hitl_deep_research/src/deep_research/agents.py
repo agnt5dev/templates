@@ -40,7 +40,8 @@ Always start your response with "PLAN:" followed by the research plan."""
 
 scoping_agent = Agent(
     name="ScopingAgent",
-    model="openai/gpt-4o-mini",
+    model="openai/gpt-6-luna",
+    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
     instructions=scoping_agent_prompt,
     max_tokens=8192
 )
@@ -84,7 +85,8 @@ Continue this format for all subtopics."""
 
 research_agent = Agent(
     name="ResearchAgent",
-    model="openai/gpt-4o-mini",
+    model="openai/gpt-6-luna",
+    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
     instructions=research_agent_prompt,
     tools=[wikipedia_search_tool, fetch_webpage_tool],
     max_tokens=8192
@@ -126,7 +128,8 @@ Do NOT include a quality assessment — end your report with the References sect
 
 writing_agent = Agent(
     name="WritingAgent",
-    model="openai/gpt-4o-mini",
+    model="openai/gpt-6-luna",
+    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
     instructions=writing_agent_prompt,
     max_tokens=8192
 )

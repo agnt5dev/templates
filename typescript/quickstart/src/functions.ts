@@ -6,7 +6,13 @@
  */
 
 import { fn, Agent, LM } from '@agnt5/sdk';
+import type { AgentCallbacks } from '@agnt5/sdk';
 import type { Context } from '@agnt5/sdk';
+
+// gpt-6 rejects any temperature, and @agnt5/sdk sends a default of 0.7, so drop it before each model call.
+const dropTemperature: NonNullable<AgentCallbacks['beforeModel']> = (_ctx, request) => {
+  delete request.config?.temperature;
+};
 
 const HN_TOP = 'https://hacker-news.firebaseio.com/v0/topstories.json';
 const HN_ITEM = (id: number) =>
@@ -68,7 +74,8 @@ export const summarize = fn('summarize').run(
     const agent = new Agent({
       name: 'hn_summarizer',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
+      modelName: 'openai/gpt-6-luna',
+      callbacks: { beforeModel: dropTemperature },
       instructions: SUMMARIZER_PROMPT,
     });
     const result = await agent.run(prompt, ctx);

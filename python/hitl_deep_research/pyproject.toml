@@ -1,6 +1,6 @@
 [project]
 name = "deep-research-agnt5"
-version = "1.0.9"
+version = "1.0.10"
 description = "Deep Research system built on AGNT5 SDK"
 requires-python = ">=3.11"
 

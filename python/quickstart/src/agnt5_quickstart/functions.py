@@ -18,7 +18,8 @@ covering what the story is and why it might matter. No marketing language."""
 
 summarizer = Agent(
     name="hn_summarizer",
-    model="openai/gpt-5-mini",
+    model="openai/gpt-6-luna",
+    temperature=None,  # gpt-6 rejects any temperature; None stops the SDK sending its 0.7 default
     instructions=SUMMARIZER_PROMPT,
 )
 

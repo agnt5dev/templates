@@ -25,7 +25,7 @@ wheels = [
 
 [[package]]
 name = "agnt5-quickstart"
-version = "0.2.10"
+version = "0.2.11"
 source = { editable = "." }
 dependencies = [
     { name = "agnt5" },

@@ -11,6 +11,12 @@
  */
 
 import { Agent, LM, handoff } from '@agnt5/sdk';
+import type { AgentCallbacks } from '@agnt5/sdk';
+
+// gpt-6 rejects any temperature, and @agnt5/sdk sends a default of 0.7, so drop it before each model call.
+const dropTemperature: NonNullable<AgentCallbacks['beforeModel']> = (_ctx, request) => {
+  delete request.config?.temperature;
+};
 
 // Lazy singletons — each agent is created once on first use.
 // The triage agent must be created after the specialist agents
@@ -24,8 +30,8 @@ export function getHistoryTutorAgent(): Agent {
     _historyTutorAgent = new Agent({
       name: 'history_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      callbacks: { beforeModel: dropTemperature },
       instructions: `You are a specialized history tutor agent designed to provide comprehensive assistance with historical queries.
 
 Your primary responsibilities:
@@ -59,8 +65,8 @@ export function getMathTutorAgent(): Agent {
     _mathTutorAgent = new Agent({
       name: 'math_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      callbacks: { beforeModel: dropTemperature },
       instructions: `You are a specialized mathematics tutor agent designed to provide comprehensive assistance with mathematical problems and concepts.
 
 Your primary responsibilities:
@@ -104,8 +110,8 @@ export function getTutorAgent(): Agent {
     _tutorAgent = new Agent({
       name: 'triage_tutor',
       model: LM.openai(),
-      modelName: 'openai/gpt-5-mini',
-      temperature: 0.3,
+      modelName: 'openai/gpt-6-luna',
+      callbacks: { beforeModel: dropTemperature },
       instructions: `You are a triage agent that helps students by routing their questions to specialized tutors.
 
 Your role:

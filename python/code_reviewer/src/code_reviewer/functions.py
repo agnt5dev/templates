@@ -130,7 +130,7 @@ async def synthesize_review_report(ctx: FunctionContext, code_review: str) -> st
 
     try:
         response = await lm.generate(
-            model="openai/gpt-4.1-mini",
+            model="openai/gpt-6-luna",
             system_prompt=SYNTHESIZER_SYSTEM_PROMPT,
             messages=[
                 {
@@ -140,7 +140,6 @@ async def synthesize_review_report(ctx: FunctionContext, code_review: str) -> st
                     ),
                 },
             ],
-            temperature=0,
         )
 
         report = response.text
@@ -414,7 +413,7 @@ async def review_file_node(
     tech_str = f"Languages: {', '.join(tech_stack.get('languages', []))} | Frameworks: {', '.join(tech_stack.get('frameworks', []))}"
 
     response = await lm.generate(
-        model="openai/gpt-4.1-mini",
+        model="openai/gpt-6-luna",
         system_prompt=FILE_REVIEWER_SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -430,7 +429,6 @@ async def review_file_node(
                 patch=patch,
             ),
         }],
-        temperature=0,
         response_format=FileReview,
     )
 
@@ -495,7 +493,7 @@ async def security_review_node(
         ticket_summary = f"{ticket_context.get('key', '')}: {ticket_context.get('summary', '')}"
 
     response = await lm.generate(
-        model="openai/gpt-4.1-mini",
+        model="openai/gpt-6-luna",
         system_prompt=SECURITY_REVIEWER_SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -507,7 +505,6 @@ async def security_review_node(
                 ticket_context=ticket_summary,
             ),
         }],
-        temperature=0,
         response_format=SecurityReview,
     )
 
@@ -614,7 +611,7 @@ async def build_report_node(
     )
 
     response = await lm.generate(
-        model="openai/gpt-4.1-mini",
+        model="openai/gpt-6-luna",
         system_prompt=REPORT_SYNTHESIZER_SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -626,7 +623,6 @@ async def build_report_node(
                 security_review=security_text,
             ),
         }],
-        temperature=0,
     )
 
     ctx.logger.info("✅ Final report built")
