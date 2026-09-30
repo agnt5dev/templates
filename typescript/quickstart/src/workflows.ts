@@ -25,6 +25,17 @@ import {
 } from './functions.js';
 import type { Digest, Story, SummarizedStory } from './functions.js';
 
+/**
+ * Run `fn` as a checkpointed step and return its result. On replay the
+ * checkpoint can come back as its JSON text rather than the value, so a string
+ * is decoded before use. Every step here returns an object or an array, never
+ * a string, so the decode can't misread a real result.
+ */
+async function step<T>(ctx: Context, name: string, fn: () => T | Promise<T>, key?: string): Promise<T> {
+  const result = await ctx.step<T | string>(name, fn, key === undefined ? undefined : { key });
+  return typeof result === 'string' ? (JSON.parse(result) as T) : result;
+}
+
 export const digest = workflow(
   'digest',
   async (ctx: Context, input: { limit?: number } = {}): Promise<Digest> => {
@@ -32,29 +43,25 @@ export const digest = workflow(
     ctx.logger.info(`Starting digest for top ${limit} stories`);
 
     // 1. Pull the IDs — one checkpoint.
-    const ids = await ctx.step<number[]>('fetch_top_ids', () => fetchTopIds(ctx, { limit }));
+    const ids = await step<number[]>(ctx, 'fetch_top_ids', () => fetchTopIds(ctx, { limit }));
 
     // 2. Fan out: one checkpoint per story. Promise.all runs them concurrently,
     //    so each step is keyed by its story ID to match it to its checkpoint on
     //    replay whatever order they finish in.
     const stories = await Promise.all(
       ids.map((storyId) =>
-        ctx.step<Story>('fetch_story', () => fetchStory(ctx, { storyId }), {
-          key: String(storyId),
-        }),
+        step<Story>(ctx, 'fetch_story', () => fetchStory(ctx, { storyId }), String(storyId)),
       ),
     );
 
     // 3. Fan out again on summarization, one keyed checkpoint per story.
     const summaries = await Promise.all(
       stories.map((story) =>
-        ctx.step<SummarizedStory>('summarize', () => summarize(ctx, { story }), {
-          key: String(story.id),
-        }),
+        step<SummarizedStory>(ctx, 'summarize', () => summarize(ctx, { story }), String(story.id)),
       ),
     );
 
     // 4. Combine. One last checkpoint, then return.
-    return ctx.step<Digest>('assemble_digest', () => assembleDigest(ctx, { summaries }));
+    return step<Digest>(ctx, 'assemble_digest', () => assembleDigest(ctx, { summaries }));
   },
 );
