@@ -18,7 +18,7 @@ async def get_weather(ctx: WorkflowContext, location: str) -> WeatherData:
     Returns:
         WeatherData: Weather information
     """
-    weather = await ctx.task(get_weather_data, location)
+    weather = await ctx.step(get_weather_data, location)
 
     ctx.logger.info(
         f"Weather retrieved: {weather.location} - {weather.temperature_c}°C"

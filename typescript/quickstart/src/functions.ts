@@ -1,8 +1,9 @@
 /**
  * Steps for the Hacker News digest workflow.
  *
- * Each `fn(...)` is a durable step. When called inside a workflow, the runtime
- * checkpoints the result — a worker restart skips steps that already completed.
+ * Each `fn(...)` is a function the workflow runs as a step. Called through
+ * `ctx.step(...)`, its result is checkpointed, so a worker restart skips the
+ * steps that already completed (see workflows.ts).
  */
 
 import { fn, Agent, LM } from '@agnt5/sdk';
@@ -16,7 +17,7 @@ const SUMMARIZER_PROMPT = `You are summarizing a Hacker News story for a busy
 engineer. Given a title and (if available) a URL, write 1-2 plain sentences
 covering what the story is and why it might matter. No marketing language.`;
 
-interface Story {
+export interface Story {
   id: number;
   title: string;
   url?: string;
@@ -24,11 +25,16 @@ interface Story {
   by?: string;
 }
 
-interface SummarizedStory {
+export interface SummarizedStory {
   id: number;
   title: string;
   url?: string;
   summary: string;
+}
+
+export interface Digest {
+  count: number;
+  digest: string;
 }
 
 // 1. Fetch the current top story IDs from HN.
@@ -58,8 +64,8 @@ export const fetchStory = fn('fetch_story').run(
   },
 );
 
-// 3. Summarize one story with a small model call. The Agent.run(..., ctx) call
-//    threads the workflow context, so the model call is also checkpointed.
+// 3. Summarize one story with a small model call. The workflow runs this through
+//    ctx.step, so a finished summary is not asked for again on replay.
 export const summarize = fn('summarize').run(
   async (ctx: Context, input: { story: Story }): Promise<SummarizedStory> => {
     const { story } = input;
@@ -88,7 +94,7 @@ export const assembleDigest = fn('assemble_digest').run(
   async (
     _ctx: Context,
     input: { summaries: SummarizedStory[] },
-  ): Promise<{ count: number; digest: string }> => {
+  ): Promise<Digest> => {
     const lines: string[] = ['# Hacker News digest\n'];
     input.summaries.forEach((s, i) => {
       const link = s.url ? ` — ${s.url}` : '';

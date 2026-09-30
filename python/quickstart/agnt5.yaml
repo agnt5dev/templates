@@ -2,8 +2,3 @@ name: quickstart
 language: python
 language_version: ">=3.11"
 environment: dev
-
-deploy:
-  resources:
-    memory: 512Mi
-    cpu: 500m

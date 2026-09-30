@@ -5,8 +5,3 @@ environment: dev
 
 worker:
   command: "go run ."
-
-deploy:
-  resources:
-    memory: 256Mi
-    cpu: 250m

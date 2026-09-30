@@ -48,8 +48,9 @@ func DigestWorkflow(ctx *agnt5.Context, in DigestInput) (DigestOutput, error) {
 
 	// 2. Fan out: fetch every story concurrently, checkpointed as one Step.
 	//    A worker restart re-runs this whole step, not just the missing
-	//    stories — coarser-grained than Python/TypeScript's per-item
-	//    checkpointing, since Go has no per-iteration fan-out primitive yet.
+	//    stories. For one checkpoint per story, as the Python and TypeScript
+	//    quickstarts have, call agnt5.TaskWithKey per story from the
+	//    goroutines, keyed by the story ID.
 	stories, err := agnt5.Step(ctx, "fetch_stories", func(c context.Context) ([]Story, error) {
 		return fetchAllStories(c, ids)
 	})

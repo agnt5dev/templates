@@ -43,7 +43,7 @@ src/quickstart/       # implementation package (mirrors Python's src/<package>/,
    go mod download
    ```
 
-4. Set up environment variables (uses OpenAI by default; set `ANTHROPIC_API_KEY` and update the model in `main.go`'s `newSummarizerModel` to use Anthropic instead):
+4. Set up environment variables. The summarizer uses OpenAI `gpt-4o-mini`, or Anthropic `claude-haiku-4-5-20251001` when `ANTHROPIC_API_KEY` is set; change the models in `main.go`'s `newSummarizerModel`:
    ```bash
    cp .env.example .env
    ```

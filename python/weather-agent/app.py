@@ -11,12 +11,11 @@ Usage:
 """
 
 import asyncio
-from agnt5 import Worker
-from agnt5._telemetry import setup_module_logger
+from agnt5 import Worker, get_logger
 
 from weather_agent.config import config
 
-logger = setup_module_logger(__name__)
+logger = get_logger(__name__)
 
 
 async def main():

@@ -1,9 +1,8 @@
 import asyncio
-from agnt5 import with_entity_context
-from agnt5._telemetry import setup_module_logger
+from agnt5 import get_logger, with_entity_context
 from weather_agent.workflows import get_weather
 
-logger = setup_module_logger(__name__)
+logger = get_logger(__name__)
 
 
 @with_entity_context

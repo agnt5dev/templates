@@ -10,7 +10,7 @@ A fan-out workflow that summarizes the top Hacker News stories, with every step 
 
 ## Key concepts
 
-- **Durable checkpointing** — Every step call inside the workflow is a checkpoint. Keep new steps as `fn(...).run(...)` and call them through `ctx` so the runtime can skip them on replay.
+- **Durable checkpointing** — Each step runs through `ctx.step`, which checkpoints its result. Keep new steps as `fn(...).run(...)` and call them with `ctx.step('name', () => step(ctx, input))`, keyed when they run concurrently, so the runtime skips completed steps on replay. A step called directly runs again on every replay.
 - **Fan-out / fan-in** — `fetchStory` and `summarize` run once per story, in parallel, before `assembleDigest` combines the results.
 
 ## Setup

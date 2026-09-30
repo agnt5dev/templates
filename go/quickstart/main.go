@@ -11,16 +11,18 @@ import (
 	"quickstart/src/quickstart"
 )
 
+// newSummarizerModel picks Anthropic when ANTHROPIC_API_KEY is set and OpenAI
+// otherwise. Go takes the bare model name, without a "provider/" prefix.
 func newSummarizerModel() agnt5.LanguageModel {
 	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
 		return agnt5.NewAnthropicModel(agnt5.AnthropicConfig{
 			APIKey: key,
-			Model:  "claude-3-5-haiku-20241022",
+			Model:  "claude-haiku-4-5-20251001",
 		})
 	}
 	return agnt5.NewOpenAIModel(agnt5.OpenAIConfig{
 		APIKey: os.Getenv("OPENAI_API_KEY"),
-		Model:  "gpt-5-mini",
+		Model:  "gpt-4o-mini",
 	})
 }
 
