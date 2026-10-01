@@ -213,13 +213,15 @@ async def planner_node(ctx: FunctionContext, task_description: str) -> Plan:
             response_format=Plan,
         )
 
-        plan = response.structured_output
+        # structured_output is a Plan on agnt5 0.13.7+ and a dict before it;
+        # model_validate accepts either.
+        plan = Plan.model_validate(response.structured_output)
 
         ctx.logger.info("✅ Plan generated successfully")
-        ctx.logger.debug(f"Dev plan length: {len(plan['dev_plan'])} chars")
-        ctx.logger.debug(f"Test plan length: {len(plan['test_plan'])} chars")
+        ctx.logger.debug(f"Dev plan length: {len(plan.dev_plan)} chars")
+        ctx.logger.debug(f"Test plan length: {len(plan.test_plan)} chars")
 
-        return Plan(**plan)
+        return plan
 
     except Exception as e:
         ctx.logger.error(f"Error in planner_agent: {e}")
@@ -299,8 +301,8 @@ async def code_generator_node(
             response_format=GeneratedCode,
         )
 
-        raw = response.structured_output
-        code_result = GeneratedCode(code=_clean_code(raw["code"]))
+        raw = GeneratedCode.model_validate(response.structured_output)
+        code_result = GeneratedCode(code=_clean_code(raw.code))
 
         ctx.logger.info(f"✅ Code processed: {len(code_result.code)} chars")
         return code_result
@@ -339,8 +341,8 @@ async def test_generator_node(
             response_format=GeneratedCode,
         )
 
-        raw = response.structured_output
-        tests = GeneratedCode(code=_clean_code(raw["code"]))
+        raw = GeneratedCode.model_validate(response.structured_output)
+        tests = GeneratedCode(code=_clean_code(raw.code))
 
         ctx.logger.info(f"✅ Tests generated: {len(tests.code)} chars")
         return tests
@@ -550,7 +552,7 @@ async def error_analyzer_node(
             response_format=ErrorAnalysis,
         )
 
-        analysis = ErrorAnalysis(**response.structured_output)
+        analysis = ErrorAnalysis.model_validate(response.structured_output)
 
         ctx.logger.info("✅ Error analysis complete")
         ctx.logger.debug(f"Failed tests: {len(analysis.failed_tests)}")
@@ -606,7 +608,7 @@ async def test_repair_node(
             max_tokens=MAX_OUTPUT_TOKENS,
             response_format=GeneratedCode,
         )
-        candidate = _clean_code(response.structured_output["code"])
+        candidate = _clean_code(GeneratedCode.model_validate(response.structured_output).code)
     except Exception as e:
         ctx.logger.error(f"Error in test_repair_node: {e}")
         raise
