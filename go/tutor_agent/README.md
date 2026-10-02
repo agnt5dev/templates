@@ -54,7 +54,9 @@ src/tutor_agent/        # implementation package (mirrors Python's src/<package>
 
 ## Deploy
 
-`agnt5 deploy` leaves `.env` out of the upload, so a deployed project needs the key as a project secret.
+The template's `.gitignore` lists `.env`, so `agnt5 deploy` leaves that file out of the upload. A deployed project reads the key from a project secret instead.
+
+A project made with `agnt5 create` is already linked to AGNT5. If you cloned this repository instead, run `agnt5 init` in it first. It links the directory to a new or existing project, which `agnt5 secrets set` and `agnt5 deploy` both need.
 
 1. Add `OPENAI_API_KEY` as a secret, in Studio under **Settings → Secrets**, or from the project directory:
    ```bash
@@ -68,6 +70,6 @@ src/tutor_agent/        # implementation package (mirrors Python's src/<package>
    ```
    This creates a preview deployment, which stops after an hour. Add `--env production` to deploy to production.
 
-A deployment reads its secrets when it starts. If you add or change the key while a deployment is running, run `agnt5 deploy` again to pick it up.
+A deployment reads its secrets when it starts. After you add or change the key, deploy again to each environment that uses it: `agnt5 deploy` for preview, `agnt5 deploy --env production` for production.
 
 Without the key, runs fail with OpenAI's 401 error, `You didn't provide an API key`.
