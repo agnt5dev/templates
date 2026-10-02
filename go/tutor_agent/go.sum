@@ -1,5 +1,5 @@
-github.com/agnt5dev/sdk-go v0.10.4 h1:NHZr7TvluzZyAO+YG+fBQONtm0fQpM9PZZM3mdO5pgU=
-github.com/agnt5dev/sdk-go v0.10.4/go.mod h1:a7SqT+Vg/EzqByi0HfYUsZN8u+hw0e2YE0gfTofDvbs=
+github.com/agnt5dev/sdk-go v0.10.5 h1:jPtzx6TwVxEQ94gq3czQIDoP8m1TZ1fY2o1RDLlLQCk=
+github.com/agnt5dev/sdk-go v0.10.5/go.mod h1:a7SqT+Vg/EzqByi0HfYUsZN8u+hw0e2YE0gfTofDvbs=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

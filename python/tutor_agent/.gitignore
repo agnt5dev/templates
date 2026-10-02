@@ -10,3 +10,6 @@ wheels/
 .venv
 config.yaml
 .agnt5/
+
+# local secrets
+.env

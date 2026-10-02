@@ -6,6 +6,7 @@ package tutor_agent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/agnt5dev/sdk-go/agnt5"
 )
@@ -28,10 +29,9 @@ func TutorChatWorkflow(ctx *agnt5.Context, in TutorChatInput) (TutorChatOutput, 
 		return TriageAgent.Run(ctx, agnt5.AgentInput{Message: in.Message})
 	})
 	if err != nil {
-		ctx.Logger().Error("Error running tutor agent", "error", err)
-		return TutorChatOutput{
-			Output: "I apologize, but I'm having trouble processing your question right now. Could you please rephrase: " + in.Message,
-		}, nil
+		// Return the error so the run fails with it (no OPENAI_API_KEY, a
+		// provider outage) rather than returning a canned answer as a success.
+		return TutorChatOutput{}, fmt.Errorf("tutor agent: %w", err)
 	}
 
 	return TutorChatOutput{Output: result.Response}, nil

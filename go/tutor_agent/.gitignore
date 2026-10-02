@@ -1,4 +1,5 @@
 /tutor-agent
+.env
 .env*
 !.env.example
 .agnt5/

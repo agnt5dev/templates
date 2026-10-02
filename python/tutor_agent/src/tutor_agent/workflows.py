@@ -23,15 +23,13 @@ async def tutor_chat_workflow(ctx: WorkflowContext, message: str) -> dict:
     """
     ctx.logger.info(f"Tutor chat workflow - message: {message}")
 
-    try:
-        result = await tutor_agent.run(message, context=ctx)
-        response = result.output
-    except Exception as e:
-        ctx.logger.error(f"Error running tutor agent: {e}")
-        response = f"I apologize, but I'm having trouble processing your question right now. Could you please rephrase: {message}"
+    # Errors are not caught here: when the model call fails (no OPENAI_API_KEY,
+    # a provider outage), the run fails with that error rather than returning
+    # a canned answer as a success.
+    result = await tutor_agent.run(message, context=ctx)
 
     return {
-        "output": response,
+        "output": result.output,
     }
 
 

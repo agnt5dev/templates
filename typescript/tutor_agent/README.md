@@ -42,3 +42,25 @@ A multi-subject educational assistant that routes student questions to specializ
    ```bash
    agnt5 dev
    ```
+
+## Deploy
+
+The template's `.gitignore` lists `.env`, so `agnt5 deploy` leaves that file out of the upload. A deployed project reads the key from a project secret instead.
+
+A project made with `agnt5 create` is already linked to AGNT5. If you cloned this repository instead, run `agnt5 init` in it first. It links the directory to a new or existing project, which `agnt5 secrets set` and `agnt5 deploy` both need.
+
+1. Add `OPENAI_API_KEY` as a secret, in Studio under **Settings → Secrets**, or from the project directory:
+   ```bash
+   agnt5 secrets set --name OPENAI_API_KEY --type api_key
+   ```
+   The CLI prompts for the value without echoing it. To pipe the value in instead, add `--stdin`.
+
+2. Deploy:
+   ```bash
+   agnt5 deploy
+   ```
+   This creates a preview deployment, which stops after an hour. Add `--env production` to deploy to production.
+
+A deployment reads its secrets when it starts. After you add or change the key, deploy again to each environment that uses it: `agnt5 deploy` for preview, `agnt5 deploy --env production` for production.
+
+Without the key, runs fail with OpenAI's 401 error, `Incorrect API key provided: ''`.
