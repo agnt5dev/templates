@@ -51,3 +51,23 @@ src/tutor_agent/        # implementation package (mirrors Python's src/<package>
    ```bash
    agnt5 dev
    ```
+
+## Deploy
+
+`agnt5 deploy` leaves `.env` out of the upload, so a deployed project needs the key as a project secret.
+
+1. Add `OPENAI_API_KEY` as a secret, in Studio under **Settings → Secrets**, or from the project directory:
+   ```bash
+   agnt5 secrets set --name OPENAI_API_KEY --type api_key
+   ```
+   The CLI prompts for the value without echoing it. To pipe the value in instead, add `--stdin`.
+
+2. Deploy:
+   ```bash
+   agnt5 deploy
+   ```
+   This creates a preview deployment, which stops after an hour. Add `--env production` to deploy to production.
+
+A deployment reads its secrets when it starts. If you add or change the key while a deployment is running, run `agnt5 deploy` again to pick it up.
+
+Without the key, runs fail with OpenAI's 401 error, `You didn't provide an API key`.

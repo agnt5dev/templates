@@ -15,17 +15,12 @@ export const tutorChatWorkflow = workflow(
     const { message } = input;
     ctx.logger.info(`Tutor chat workflow - message: ${message}`);
 
-    try {
-      const result = await getTutorAgent().run(message, ctx);
-      return {
-        output: result.output,
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      ctx.logger.error(`Error running tutor agent: ${msg}`);
-      return {
-        output: `I apologize, but I'm having trouble processing your question right now. Could you please rephrase: ${message}`,
-      };
-    }
+    // Errors are not caught here: when the model call fails (no OPENAI_API_KEY,
+    // a provider outage), the run fails with that error rather than returning
+    // a canned answer as a success.
+    const result = await getTutorAgent().run(message, ctx);
+    return {
+      output: result.output,
+    };
   },
 );
