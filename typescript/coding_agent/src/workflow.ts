@@ -222,7 +222,9 @@ export const codingAgentWorkflow = workflow(
           codeSyncNode(ctx, {
             main_code: generatedCode,
             test_code: generatedTests,
-            sandbox_id: existingSandboxId,
+            // Left out until a sandbox exists: the SDK checkpoints a retrying
+            // function's input, and a checkpoint can't hold an undefined field.
+            ...(existingSandboxId ? { sandbox_id: existingSandboxId } : {}),
           }),
       );
 
