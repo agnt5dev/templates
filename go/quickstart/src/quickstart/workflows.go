@@ -14,7 +14,7 @@ import (
 )
 
 type DigestInput struct {
-	Limit int `json:"limit"`
+	Limit int `json:"limit,omitempty"`
 }
 
 // digestWorkflow fetches the top `limit` HN stories, summarizes them in
