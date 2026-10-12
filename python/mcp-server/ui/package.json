@@ -1,0 +1,23 @@
+{
+  "name": "mcp-server-views",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The MCP App views the support server ships. `npm run build` writes each as one self-contained HTML file to ../src/agnt5_mcp_server/views/.",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/core": "2.3.1",
+    "@modelcontextprotocol/ext-apps": "2.0.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.2",
+    "vite-plugin-singlefile": "2.3.3",
+    "zod": "4.6.5"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  }
+}
