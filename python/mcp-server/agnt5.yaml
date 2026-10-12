@@ -1,0 +1,12 @@
+name: mcp-server
+language: python
+language_version: ">=3.11"
+environment: dev
+
+# The MCP servers this project publishes. Each is defined in code (see
+# src/agnt5_mcp_server/server.py); naming it here lets `agnt5 deploy` warn
+# when a deploy didn't publish it, and `agnt5 mcp connect` / `agnt5 mcp check`
+# pick it without a name.
+mcp:
+  servers:
+    - name: support

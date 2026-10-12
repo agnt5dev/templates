@@ -1,0 +1,16 @@
+name: mcp-server
+language: typescript
+language_version: ">=22"
+environment: dev
+variables: {}
+
+worker:
+  command: "npx tsx app.ts"
+
+# The MCP servers this project publishes. Each is defined in code (see
+# src/server.ts); naming it here lets `agnt5 deploy` warn when a deploy didn't
+# publish it, and `agnt5 mcp connect` / `agnt5 mcp check` pick it without a
+# name.
+mcp:
+  servers:
+    - name: support

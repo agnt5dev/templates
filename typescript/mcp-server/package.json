@@ -1,0 +1,25 @@
+{
+  "name": "mcp-server",
+  "version": "0.1.3",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "AGNT5 MCP server starter: a function, a workflow and an agent published as MCP tools",
+  "scripts": {
+    "start": "npx tsx app.ts",
+    "build:views": "npm --prefix ui install && npm --prefix ui run build",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agnt5/sdk": "^0.10.15",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
