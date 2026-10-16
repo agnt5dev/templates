@@ -39,7 +39,14 @@ async def main():
             coordinator_endpoint=coordinator_endpoint,
             runtime="standalone",
             workflows=[slack_deep_research],
-            functions=[_claim_event, _plan_research, _request_plan_approval, _conduct_research, _write_report, _post_report],
+            functions=[
+                _claim_event,
+                _plan_research,
+                _request_plan_approval,
+                _conduct_research,
+                _write_report,
+                _post_report,
+            ],
             agents=[scoping_agent, research_agent, writing_agent],
             tools=[fetch_webpage_tool, wikipedia_search_tool],
         )
@@ -50,6 +57,7 @@ async def main():
         logger.info("  Tools    : wikipedia_search_tool, fetch_webpage_tool")
 
         await worker.run()
+        return 0
 
     except ImportError as e:
         logger.error("Make sure to install agnt5: pip install agnt5")

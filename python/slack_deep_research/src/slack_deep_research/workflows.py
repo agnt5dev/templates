@@ -15,8 +15,6 @@ import json
 import os
 from typing import Any
 
-import httpx
-
 from agnt5 import WorkflowContext, workflow
 from agnt5.types import event
 
