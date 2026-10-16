@@ -141,6 +141,18 @@
         }
       }
     },
+    "slack_deep_research": {
+      "title": "Slack Deep Research",
+      "description": "Slack bot that posts a research plan for approval, then researches and replies in the thread",
+      "category": "Research & Analysis",
+      "capabilities": ["agents", "workflows", "functions", "tooling", "hitl", "integrations"],
+      "languages": {
+        "python": {
+          "latest": "v1.0.0",
+          "versions": ["v1.0.0"]
+        }
+      }
+    },
     "mcp-server": {
       "title": "MCP Server",
       "description": "MCP server for Claude, ChatGPT and Cursor: a function, a workflow and an agent published as tools",
