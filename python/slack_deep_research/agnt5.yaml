@@ -1,0 +1,7 @@
+name: slack-deep-research
+language: python
+language_version: ">=3.12"
+environment: development
+variables: {}
+worker:
+  command: "uv run --no-sync python app.py"
