@@ -55,6 +55,7 @@ agnt5 run <workflow-name> --input '{"key": "value"}'
 | `travel_booking_customer_service` | Python, TypeScript, Go | Multi-agent travel booking assistant |
 | `tutor_agent` | Python, TypeScript, Go | Multi-subject tutor with specialized handoffs |
 | `hitl_deep_research` | Python, TypeScript, Go | Research pipeline with a human-in-the-loop approval gate |
+| `mcp-server` | Python, TypeScript | MCP server for Claude, ChatGPT and Cursor: a function, a workflow and an agent published as tools |
 
 See [`templates.json`](templates.json) for the authoritative manifest.
 

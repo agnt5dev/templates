@@ -839,7 +839,7 @@ export const CODEFIXER_USER_PROMPT = `**CRITICAL MISSION: Fix the failing code t
 
 ## YOUR DEBUGGING WORKFLOW
 
-### STEP 1: REVIEW PROVIDED ERROR ANALYSIS (30 seconds)
+### STEP 1: REVIEW PROVIDED ERROR ANALYSIS
 
 **The Error Analysis section above provides:**
 - List of all failed tests
@@ -857,7 +857,7 @@ export const CODEFIXER_USER_PROMPT = `**CRITICAL MISSION: Fix the failing code t
 
 ---
 
-### STEP 2: ROOT CAUSE VERIFICATION (60 seconds)
+### STEP 2: ROOT CAUSE VERIFICATION
 
 **Compare current code against specification:**
 
@@ -883,16 +883,9 @@ export const CODEFIXER_USER_PROMPT = `**CRITICAL MISSION: Fix the failing code t
    - Proper initialization?
    - Right access patterns?
 
-**Write your diagnosis:**
-\`\`\`
-ROOT CAUSE: [Describe exactly what's wrong]
-WHY IT FAILS: [Explain why this causes test failures]
-EVIDENCE: [Point to specific lines/logic]
-\`\`\`
-
 ---
 
-### STEP 3: FIX STRATEGY (30 seconds)
+### STEP 3: FIX STRATEGY
 
 **Choose ONE strategy:**
 
@@ -947,7 +940,7 @@ Use when:
 
 ---
 
-### STEP 5: MENTAL VERIFICATION (30 seconds)
+### STEP 5: MENTAL VERIFICATION
 
 **Before submitting, verify:**
 

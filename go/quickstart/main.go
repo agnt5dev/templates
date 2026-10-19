@@ -17,7 +17,7 @@ func newSummarizerModel() agnt5.LanguageModel {
 	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
 		return agnt5.NewAnthropicModel(agnt5.AnthropicConfig{
 			APIKey: key,
-			Model:  "claude-haiku-4-5-20251001",
+			Model:  "claude-haiku-5-5",
 		})
 	}
 	return agnt5.NewOpenAIModel(agnt5.OpenAIConfig{

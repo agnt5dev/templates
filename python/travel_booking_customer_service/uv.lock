@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "agnt5"
-version = "0.14.4"
+version = "0.14.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
@@ -16,11 +16,11 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2f/a0/11bbec7aab1ee0240845bf6f5732e1a75a567598e736fe06c15afd2c87c6/agnt5-0.14.4.tar.gz", hash = "sha256:f7f210fb671ab450296c549d594564823cb7280194ddeeb7e61bbe6a72da4d2a", size = 949533, upload-time = "2026-10-07T05:11:20.418Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/d4/94249826a4d10eca948d18f1e155068b8b4f0f6202f3bc0f780fcf8d782d/agnt5-0.14.5.tar.gz", hash = "sha256:a2e6007f4c35a6e764c21fdf383d6dbe7a534fc93e2a34acc3b3bffeefebb50d", size = 950141, upload-time = "2026-10-09T21:12:28.407Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/86/3f25501e094542e8fe75db06710f526f8c60a8fe6cded36263e2b779e376/agnt5-0.14.4-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:edcb13ca0c4e45ec8f653ea5fb083189c8e3e8c43971a19e6e6127924e3071de", size = 16664053, upload-time = "2026-10-07T05:11:13.622Z" },
-    { url = "https://files.pythonhosted.org/packages/ae/b6/090271fc509dbe1455095b9d8f83f924e0e3668ae978ae417c74daa9c2e3/agnt5-0.14.4-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:d170770fbfff895c1d3ddf4c3d697f03b5a3c513499555b10e625674848aa3f1", size = 19433383, upload-time = "2026-10-07T05:11:16.027Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/1a/4086dabd9f3f70f85f48bc0612ab4fe932e235291ddf3dc25cddc528f074/agnt5-0.14.4-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:980cfd9bef2b407477296744c14a7af0743c7e1f675205f2a92227b7e7516a5f", size = 18449699, upload-time = "2026-10-07T05:11:18.171Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/ed/9d7714c2b53603fa51ef7920d8b2f213ec1c523681245ab1ec65ec34e66a/agnt5-0.14.5-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:134b08b45259b8b1e2d8a86ae3b343bedb182a95246e11c1aa091bb98c47b008", size = 16664398, upload-time = "2026-10-09T21:12:20.888Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/8f/61f9e1c177226c4b201f5378e60b6c9fb49ae2de264403bc921446ef0411/agnt5-0.14.5-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:7bd773361c8cdacf4746abef7853c515c3ba7d948d391e254c79c31b9517194c", size = 19434491, upload-time = "2026-10-09T21:12:23.728Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/8d/38296b2ebf8182cc9983c6ec3e88ed58e47aaa39eefd65f220856fe96f26/agnt5-0.14.5-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:a94cddba2d0bae3369dae09c337de9a94502e52826e517e5fc8884d2682d47e7", size = 18449755, upload-time = "2026-10-09T21:12:26.096Z" },
 ]
 
 [[package]]
@@ -173,7 +173,7 @@ wheels = [
 
 [[package]]
 name = "customer-service-agnt5"
-version = "1.0.13"
+version = "1.0.17"
 source = { editable = "." }
 dependencies = [
     { name = "agnt5" },
@@ -190,7 +190,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agnt5", specifier = "~=0.14.4" },
+    { name = "agnt5", specifier = "~=0.14.5" },
     { name = "anthropic", specifier = ">=0.112.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "requests", specifier = ">=2.31.0" },
