@@ -1,6 +1,6 @@
 [project]
 name = "slack-deep-research"
-version = "1.0.0"
+version = "1.0.1"
 description = "Slack deep research bot with plan approval, built on AGNT5"
 requires-python = ">=3.12"
 

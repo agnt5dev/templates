@@ -2,7 +2,10 @@ node_modules/
 dist/
 build/
 .env
-.agnt5/
+# AGNT5: commit the project link so git worktrees and fresh clones find the
+# project; keep the local worker state (PIDs, logs, IDs) out of git.
+.agnt5/*
+!.agnt5/project-ref
 *.log
 logs/
 .DS_Store

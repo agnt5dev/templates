@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@agnt5/sdk':
-        specifier: ^0.10.14
-        version: 0.10.14
+        specifier: ^0.10.15
+        version: 0.10.15
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -24,28 +24,28 @@ importers:
 
 packages:
 
-  '@agnt5/sdk-darwin-arm64@0.10.14':
-    resolution: {integrity: sha512-79KjlGdH+++8kGFWOYbGnlR3Fm5QoNPRbkGDqKi52sKjI96GJIGzsNu1jChmFC/EwmvuuQokI7VSQeSlUIUGzw==}
+  '@agnt5/sdk-darwin-arm64@0.10.15':
+    resolution: {integrity: sha512-sqVOUBJt2VE0uSh9Uhq1hvQxa0JQia1XqgrVJdqNyDpWTR0MOY3GcrY42apsa8/3VkIIDBEXk6lTF58MGu6EYA==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@agnt5/sdk-linux-arm64-gnu@0.10.14':
-    resolution: {integrity: sha512-O/qhcjECF5uo/3wX0q2xj2sDYAJuHQ4aylBvy7DPMVH+mn2SnyStKAgd39uz26mf0eXDrUTdeKb2vZCl+wWMag==}
+  '@agnt5/sdk-linux-arm64-gnu@0.10.15':
+    resolution: {integrity: sha512-WtVrsh77kQNZ9emVGGirWQRod+M/4Hj+h0MSC4hrMC8T1z1B4GcDkPouHFZM81wsq8hPHt9jbOL96PBiHCyFgQ==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@agnt5/sdk-linux-x64-gnu@0.10.14':
-    resolution: {integrity: sha512-KaZOL7UhDfDPfp0x4st9ryO3ztQgxY3hLOg+/Pz+yzRzUGqlpa4gpWC5YFjDwcoCDtdkCuRFYrXVM3BnZcLk/Q==}
+  '@agnt5/sdk-linux-x64-gnu@0.10.15':
+    resolution: {integrity: sha512-2/SdI2lHF/6choX+U9CxdAbklw3BzmGAMvXI/4UNcZiPmuJwyxn1YtgheYYJiqemRM0294cO69Y6U7GEUZ91aA==}
     engines: {node: '>=18.0.0'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@agnt5/sdk@0.10.14':
-    resolution: {integrity: sha512-7g/I03rK6sz0ATWLaTa/v0xkQ1iPZO8rHDZUR/KPpARRKfrzTJ8iPSawHU9aGpEUHS7VRkGBhOx7/DbYIbivHQ==}
+  '@agnt5/sdk@0.10.15':
+    resolution: {integrity: sha512-Y9dnepEEdceDhsEJewolQ6vmesd2vdCbsY17Q6aezFPUv4dP00/InrJMlse8/uAt8W1NKA6MbDDWPRk8NuSNsA==}
     engines: {node: '>=18.0.0'}
 
   '@esbuild/aix-ppc64@0.27.7':
@@ -383,22 +383,22 @@ packages:
 
 snapshots:
 
-  '@agnt5/sdk-darwin-arm64@0.10.14':
+  '@agnt5/sdk-darwin-arm64@0.10.15':
     optional: true
 
-  '@agnt5/sdk-linux-arm64-gnu@0.10.14':
+  '@agnt5/sdk-linux-arm64-gnu@0.10.15':
     optional: true
 
-  '@agnt5/sdk-linux-x64-gnu@0.10.14':
+  '@agnt5/sdk-linux-x64-gnu@0.10.15':
     optional: true
 
-  '@agnt5/sdk@0.10.14':
+  '@agnt5/sdk@0.10.15':
     dependencies:
       ajv: 8.20.0
     optionalDependencies:
-      '@agnt5/sdk-darwin-arm64': 0.10.14
-      '@agnt5/sdk-linux-arm64-gnu': 0.10.14
-      '@agnt5/sdk-linux-x64-gnu': 0.10.14
+      '@agnt5/sdk-darwin-arm64': 0.10.15
+      '@agnt5/sdk-linux-arm64-gnu': 0.10.15
+      '@agnt5/sdk-linux-x64-gnu': 0.10.15
       better-sqlite3: 11.10.0
 
   '@esbuild/aix-ppc64@0.27.7':

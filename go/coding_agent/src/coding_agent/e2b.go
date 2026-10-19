@@ -15,8 +15,10 @@
 //
 // Every envd call runs as the sandbox's default user "user", so relative
 // paths (main.py, test.py) and command working directories both resolve to
-// /home/user. Sandboxes created with secure access also need an
-// X-Access-Token header; the default ones used here do not.
+// /home/user. E2B secures every sandbox: envd refuses file and process calls
+// without the sandbox's access token in X-Access-Token ("missing signature
+// query parameter"). The token comes back when the sandbox is created, and
+// from a sandbox lookup when a later step runs in a fresh worker.
 package coding_agent
 
 import (
@@ -31,6 +33,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -44,25 +47,108 @@ const (
 	e2bSandboxDomain   = "e2b.app"
 	e2bSandboxUser     = "user"
 	e2bSandboxHome     = "/home/user"
+	// E2B stops a sandbox this long after creating it.
+	e2bSandboxTimeout = 300 * time.Second
 )
 
 type e2bClient struct {
-	apiKey     string
-	httpClient *http.Client
+	apiKey       string
+	httpClient   *http.Client
+	controlPlane string
+	host         func(sandboxID string) string
+
+	mu     sync.Mutex
+	tokens map[string]sandboxToken // envd access tokens, by sandbox ID
+}
+
+type sandboxToken struct {
+	value   string
+	expires time.Time
 }
 
 func NewE2BClient(apiKey string) *e2bClient {
-	return &e2bClient{apiKey: apiKey, httpClient: &http.Client{Timeout: 60 * time.Second}}
+	return &e2bClient{
+		apiKey:       apiKey,
+		httpClient:   &http.Client{Timeout: 60 * time.Second},
+		controlPlane: e2bControlPlaneURL,
+		host: func(sandboxID string) string {
+			return fmt.Sprintf("https://%d-%s.%s", e2bEnvdPort, sandboxID, e2bSandboxDomain)
+		},
+		tokens: map[string]sandboxToken{},
+	}
 }
 
 func (c *e2bClient) sandboxHost(sandboxID string) string {
-	return fmt.Sprintf("https://%d-%s.%s", e2bEnvdPort, sandboxID, e2bSandboxDomain)
+	return c.host(sandboxID)
 }
 
 // setEnvdUser makes envd act as the sandbox's default user. Without it, files
 // and commands can resolve against different users' home directories.
 func setEnvdUser(req *http.Request) {
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(e2bSandboxUser+":")))
+}
+
+// envdToken returns the sandbox's envd access token. A sandbox this worker
+// didn't create, such as one a durable step resumes after a restart, is looked
+// up once.
+func (c *e2bClient) envdToken(ctx context.Context, sandboxID string) (string, error) {
+	c.mu.Lock()
+	cached, ok := c.tokens[sandboxID]
+	c.mu.Unlock()
+	if ok {
+		return cached.value, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.controlPlane+"/sandboxes/"+sandboxID, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-API-Key", c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("E2B sandbox lookup failed (HTTP %d): %s", resp.StatusCode, body)
+	}
+	var detail struct {
+		EnvdAccessToken string `json:"envdAccessToken"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		return "", err
+	}
+	c.setToken(sandboxID, detail.EnvdAccessToken)
+	return detail.EnvdAccessToken, nil
+}
+
+// setToken keeps a sandbox's token until the sandbox's timeout, and drops the
+// tokens of sandboxes already past theirs: one client serves the worker for
+// its whole life, and would otherwise keep a token for every sandbox it used.
+func (c *e2bClient) setToken(sandboxID, token string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := time.Now()
+	for id, cached := range c.tokens {
+		if now.After(cached.expires) {
+			delete(c.tokens, id)
+		}
+	}
+	c.tokens[sandboxID] = sandboxToken{value: token, expires: now.Add(e2bSandboxTimeout)}
+}
+
+// authorizeEnvd makes a request to envd act as the sandbox's default user and
+// carry the sandbox's access token.
+func (c *e2bClient) authorizeEnvd(ctx context.Context, req *http.Request, sandboxID string) error {
+	setEnvdUser(req)
+	token, err := c.envdToken(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	if token != "" {
+		req.Header.Set("X-Access-Token", token)
+	}
+	return nil
 }
 
 func envdFilesURL(host, path string) string {
@@ -107,9 +193,10 @@ func (c *cappedOutput) String() string { return c.buf.String() }
 func (c *e2bClient) createSandbox(ctx context.Context) (string, error) {
 	body, _ := json.Marshal(map[string]any{
 		"templateID": e2bDefaultTemplate,
-		"timeout":    300,
+		"timeout":    int(e2bSandboxTimeout / time.Second),
+		"secure":     true,
 	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e2bControlPlaneURL+"/sandboxes", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.controlPlane+"/sandboxes", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +214,8 @@ func (c *e2bClient) createSandbox(ctx context.Context) (string, error) {
 	}
 
 	var result struct {
-		SandboxID string `json:"sandboxID"`
+		SandboxID       string `json:"sandboxID"`
+		EnvdAccessToken string `json:"envdAccessToken"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
@@ -135,13 +223,17 @@ func (c *e2bClient) createSandbox(ctx context.Context) (string, error) {
 	if result.SandboxID == "" {
 		return "", fmt.Errorf("E2B did not return a sandbox ID")
 	}
+	c.setToken(result.SandboxID, result.EnvdAccessToken)
 	return result.SandboxID, nil
 }
 
 // killSandbox terminates a sandbox. Errors are non-fatal for callers that
 // just want a best-effort cleanup.
 func (c *e2bClient) killSandbox(ctx context.Context, sandboxID string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, e2bControlPlaneURL+"/sandboxes/"+sandboxID, nil)
+	c.mu.Lock()
+	delete(c.tokens, sandboxID)
+	c.mu.Unlock()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.controlPlane+"/sandboxes/"+sandboxID, nil)
 	if err != nil {
 		return err
 	}
@@ -175,7 +267,9 @@ func (c *e2bClient) writeFile(ctx context.Context, sandboxID, path, content stri
 		return err
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	setEnvdUser(req)
+	if err := c.authorizeEnvd(ctx, req, sandboxID); err != nil {
+		return err
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -195,7 +289,9 @@ func (c *e2bClient) readFile(ctx context.Context, sandboxID, path string) (strin
 	if err != nil {
 		return "", err
 	}
-	setEnvdUser(req)
+	if err := c.authorizeEnvd(ctx, req, sandboxID); err != nil {
+		return "", err
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", err
@@ -244,7 +340,9 @@ func (c *e2bClient) runCommand(ctx context.Context, sandboxID, command string, t
 	}
 	req.Header.Set("Content-Type", "application/connect+json")
 	req.Header.Set("Connect-Protocol-Version", "1")
-	setEnvdUser(req)
+	if err := c.authorizeEnvd(ctx, req, sandboxID); err != nil {
+		return e2bCommandResult{}, err
+	}
 
 	resp, err := (&http.Client{Timeout: timeout + 10*time.Second}).Do(req)
 	if err != nil {
@@ -317,34 +415,4 @@ func (c *e2bClient) runCommand(ctx context.Context, sandboxID, command string, t
 		Stderr:   stderr.String(),
 		Success:  exitCode == 0,
 	}, nil
-}
-
-// listFiles lists files and directories at path in the sandbox.
-func (c *e2bClient) listFiles(ctx context.Context, sandboxID, path string) ([]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.sandboxHost(sandboxID)+"/dir?path="+path, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var entries []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
-		return nil, err
-	}
-	names := make([]string, len(entries))
-	for i, e := range entries {
-		kind := "FILE"
-		if e.Type == "dir" {
-			kind = "DIR"
-		}
-		names[i] = kind + ": " + e.Name
-	}
-	return names, nil
 }
