@@ -10,3 +10,6 @@ wheels/
 .venv
 config.yaml
 .agnt5/
+
+# Local secrets: keep .env out of git (.env.example stays tracked)
+.env
