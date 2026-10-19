@@ -156,6 +156,9 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 			return failedResult(ctx, taskDescription, iteration+1, generatedCode, generatedTests, sandboxID, fmt.Sprintf("Code sync failed: %v", err)), nil
 		}
 
+		// Empty after a failed sync, whose sandbox was stopped.
+		sandboxID = syncResult.SandboxID
+
 		var nextAction, status string
 		if !syncResult.Success {
 			ctx.Logger().Error("Code sync failed", "message", syncResult.Message)
@@ -166,7 +169,6 @@ func CodingAgentWorkflow(ctx *agnt5.Context, in CodingAgentInput, model agnt5.La
 			}
 			nextAction, status = "retry_code", "tests_failed"
 		} else {
-			sandboxID = syncResult.SandboxID
 			ctx.Logger().Info("Synced to sandbox", "sandbox_id", sandboxID)
 
 			ctx.Logger().Info("STEP 4: DEPENDENCY INSTALLATION")

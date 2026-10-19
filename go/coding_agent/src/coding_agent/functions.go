@@ -232,6 +232,10 @@ func codeSyncNode(ctx *agnt5.Context, e2b *e2bClient, mainCode, testCode, sandbo
 	// few seconds, and both files are written from scratch anyway. The ID that
 	// comes back is always the one the files are in, so the workflow state
 	// never keeps pointing at a dead sandbox.
+	//
+	// A sandbox given up on is stopped, not abandoned: E2B caps how many run at
+	// once per account, and an abandoned one holds a slot until its timeout. A
+	// failed sync reports no sandbox, so the next attempt starts a fresh one.
 	writeBoth := func(id string) error {
 		if err := e2b.writeFile(ctx, id, "main.py", mainCode); err != nil {
 			return err
@@ -240,6 +244,7 @@ func codeSyncNode(ctx *agnt5.Context, e2b *e2bClient, mainCode, testCode, sandbo
 	}
 	if err := writeBoth(sandboxID); err != nil {
 		ctx.Logger().Warn("Sandbox write failed, recreating the sandbox", "sandbox_id", sandboxID, "error", err)
+		_ = e2b.killSandbox(ctx, sandboxID)
 		replacement, createErr := e2b.createSandbox(ctx)
 		if createErr != nil {
 			return SyncResult{Success: false, Message: fmt.Sprintf("sandbox write failed (%v) and a replacement could not be created: %v", err, createErr)}, nil
@@ -247,7 +252,8 @@ func codeSyncNode(ctx *agnt5.Context, e2b *e2bClient, mainCode, testCode, sandbo
 		sandboxID = replacement
 		ctx.Logger().Info("Recreated sandbox", "sandbox_id", sandboxID)
 		if err := writeBoth(sandboxID); err != nil {
-			return SyncResult{Success: false, SandboxID: sandboxID, Message: err.Error()}, nil
+			_ = e2b.killSandbox(ctx, sandboxID)
+			return SyncResult{Success: false, Message: err.Error()}, nil
 		}
 	}
 
