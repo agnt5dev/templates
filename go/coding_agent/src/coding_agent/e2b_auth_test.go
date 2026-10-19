@@ -208,6 +208,33 @@ func TestTokenIsLookedUpOnceOnAnotherWorker(t *testing.T) {
 	}
 }
 
+// TestTokensExpireWithTheirSandbox: one client serves a worker for its whole
+// life, so it keeps a token only until E2B stops the sandbox.
+func TestTokensExpireWithTheirSandbox(t *testing.T) {
+	f := newFakeE2B(t)
+	c := f.client()
+	ctx := context.Background()
+	id, err := c.createSandbox(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.tokens["sbx-old"] = sandboxToken{value: "token-old", expires: time.Now().Add(-time.Second)}
+	c.tokens[id] = sandboxToken{value: c.tokens[id].value, expires: time.Now().Add(-time.Second)}
+
+	if _, err := c.createSandbox(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.tokens["sbx-old"]; ok {
+		t.Error("kept the token of a sandbox past its timeout")
+	}
+	if err := c.writeFile(ctx, id, "main.py", "x = 1\n"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if f.lookups != 1 {
+		t.Errorf("%d token lookups after the cached token expired, want 1", f.lookups)
+	}
+}
+
 // TestSyncStopsTheSandboxItReplaces: when a sandbox stops taking writes, the
 // sync moves to a new one and stops the old, so it doesn't hold one of the
 // account's concurrent sandboxes until its timeout.

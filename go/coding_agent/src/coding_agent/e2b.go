@@ -47,6 +47,8 @@ const (
 	e2bSandboxDomain   = "e2b.app"
 	e2bSandboxUser     = "user"
 	e2bSandboxHome     = "/home/user"
+	// E2B stops a sandbox this long after creating it.
+	e2bSandboxTimeout = 300 * time.Second
 )
 
 type e2bClient struct {
@@ -56,7 +58,12 @@ type e2bClient struct {
 	host         func(sandboxID string) string
 
 	mu     sync.Mutex
-	tokens map[string]string // envd access tokens, by sandbox ID
+	tokens map[string]sandboxToken // envd access tokens, by sandbox ID
+}
+
+type sandboxToken struct {
+	value   string
+	expires time.Time
 }
 
 func NewE2BClient(apiKey string) *e2bClient {
@@ -67,7 +74,7 @@ func NewE2BClient(apiKey string) *e2bClient {
 		host: func(sandboxID string) string {
 			return fmt.Sprintf("https://%d-%s.%s", e2bEnvdPort, sandboxID, e2bSandboxDomain)
 		},
-		tokens: map[string]string{},
+		tokens: map[string]sandboxToken{},
 	}
 }
 
@@ -86,10 +93,10 @@ func setEnvdUser(req *http.Request) {
 // up once.
 func (c *e2bClient) envdToken(ctx context.Context, sandboxID string) (string, error) {
 	c.mu.Lock()
-	token, ok := c.tokens[sandboxID]
+	cached, ok := c.tokens[sandboxID]
 	c.mu.Unlock()
 	if ok {
-		return token, nil
+		return cached.value, nil
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.controlPlane+"/sandboxes/"+sandboxID, nil)
 	if err != nil {
@@ -115,10 +122,19 @@ func (c *e2bClient) envdToken(ctx context.Context, sandboxID string) (string, er
 	return detail.EnvdAccessToken, nil
 }
 
+// setToken keeps a sandbox's token until the sandbox's timeout, and drops the
+// tokens of sandboxes already past theirs: one client serves the worker for
+// its whole life, and would otherwise keep a token for every sandbox it used.
 func (c *e2bClient) setToken(sandboxID, token string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.tokens[sandboxID] = token
+	now := time.Now()
+	for id, cached := range c.tokens {
+		if now.After(cached.expires) {
+			delete(c.tokens, id)
+		}
+	}
+	c.tokens[sandboxID] = sandboxToken{value: token, expires: now.Add(e2bSandboxTimeout)}
 }
 
 // authorizeEnvd makes a request to envd act as the sandbox's default user and
@@ -177,7 +193,7 @@ func (c *cappedOutput) String() string { return c.buf.String() }
 func (c *e2bClient) createSandbox(ctx context.Context) (string, error) {
 	body, _ := json.Marshal(map[string]any{
 		"templateID": e2bDefaultTemplate,
-		"timeout":    300,
+		"timeout":    int(e2bSandboxTimeout / time.Second),
 		"secure":     true,
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.controlPlane+"/sandboxes", bytes.NewReader(body))
