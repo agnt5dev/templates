@@ -1,8 +1,14 @@
+<p align="center">
+  <a href="https://agnt5.com"><img src="https://agnt5.com/images/github/github-repo-sdk-banner.png" alt="AGNT5: the reliable platform for AI agents and workflows" width="100%"></a>
+</p>
+
 # AGNT5 Starter Templates
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Starter templates for building durable AI workflows on AGNT5 in Python, TypeScript, and Go. Clone, configure, deploy.
+Starter templates for building durable AI agents and workflows on AGNT5 in Python, TypeScript, and Go: tool-calling agents, multi-agent handoffs, human-in-the-loop (HITL) approval, sandboxed coding agents, and MCP servers. Clone, configure, deploy.
+
+[Documentation](https://agnt5.com/docs) · [Python SDK](https://github.com/agnt5dev/sdk-python) · [TypeScript SDK](https://github.com/agnt5dev/sdk-typescript) · [Go SDK](https://github.com/agnt5dev/sdk-go)
 
 This repo contains starter templates for **Python**, **TypeScript**, and **Go**. See the [**Python**](python/), [**TypeScript**](typescript/), and [**Go**](go/) subfolders for language-specific setup and per-template walkthroughs.
 
