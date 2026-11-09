@@ -8,7 +8,12 @@ import sys
 
 from agnt5 import Worker
 
-from slack_deep_research.approval import _claim_event, _post_report, _request_plan_approval
+from slack_deep_research.approval import (
+    _claim_event,
+    _post_report,
+    _report_failure,
+    _request_plan_approval,
+)
 from slack_deep_research.agents import scoping_agent, research_agent, writing_agent
 from slack_deep_research.functions import _conduct_research, _plan_research, _write_report
 from slack_deep_research.tools import fetch_webpage_tool, wikipedia_search_tool
@@ -46,6 +51,7 @@ async def main():
                 _conduct_research,
                 _write_report,
                 _post_report,
+                _report_failure,
             ],
             agents=[scoping_agent, research_agent, writing_agent],
             tools=[fetch_webpage_tool, wikipedia_search_tool],
