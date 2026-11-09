@@ -1,4 +1,0 @@
-name: expense-processor
-language: python
-language_version: ">=3.12"
-environment: dev

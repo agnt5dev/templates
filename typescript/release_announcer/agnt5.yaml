@@ -1,8 +1,0 @@
-name: release-announcer
-language: typescript
-language_version: ">=22"
-environment: dev
-variables: {}
-
-worker:
-  command: "npx tsx app.ts"

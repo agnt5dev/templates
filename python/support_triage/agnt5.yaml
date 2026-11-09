@@ -1,4 +1,0 @@
-name: support_triage
-language: python
-language_version: ">=3.11"
-environment: dev
