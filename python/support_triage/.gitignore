@@ -1,0 +1,18 @@
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+config.yaml
+# AGNT5: commit the project link so git worktrees and fresh clones find the
+# project; keep the local worker state (PIDs, logs, IDs) out of git.
+.agnt5/*
+!.agnt5/project-ref
+
+# Local secrets: keep .env out of git (.env.example stays tracked)
+.env

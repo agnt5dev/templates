@@ -1,0 +1,4 @@
+name: release-announcer
+language: python
+language_version: ">=3.12"
+environment: dev

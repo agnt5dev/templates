@@ -1,0 +1,74 @@
+[
+  {
+    "id": "rcpt-01",
+    "employee": "priya@acme.dev",
+    "text": "BLUE BOTTLE COFFEE\n300 Webster St, Oakland CA\n2026-10-02 08:41\n2x Latte 11.00\nCroissant 4.75\nTax 1.38\nTOTAL USD 17.13\nVISA ****4412",
+    "mock_extraction": {"vendor": "Blue Bottle Coffee", "amount": 17.13, "currency": "USD", "category": "meals", "date": "2026-10-02"}
+  },
+  {
+    "id": "rcpt-02",
+    "employee": "priya@acme.dev",
+    "text": "UNITED AIRLINES - E-TICKET RECEIPT\nSFO -> JFK  UA 1542  2026-10-05\nFare 512.00  Taxes/fees 61.40\nTotal charged: $573.40 USD",
+    "mock_extraction": {"vendor": "United Airlines", "amount": 573.40, "currency": "USD", "category": "travel", "date": "2026-10-05"}
+  },
+  {
+    "id": "rcpt-03",
+    "employee": "priya@acme.dev",
+    "text": "THE STANDARD HIGH LINE\n848 Washington St, New York\nGuest: Priya R.  Check-in 2026-10-05  Check-out 2026-10-08\n3 nights @ 289.00 = 867.00\nCity tax 128.32\nBALANCE PAID USD 995.32",
+    "mock_extraction": {"vendor": "The Standard High Line", "amount": 995.32, "currency": "USD", "category": "lodging", "date": "2026-10-08"}
+  },
+  {
+    "id": "rcpt-04",
+    "employee": "priya@acme.dev",
+    "text": "Uber  Trip receipt  Oct 6, 2026\nJFK Terminal 7 -> Meatpacking District\nTrip fare $58.20  Tip $10.00\nTotal $68.20",
+    "mock_extraction": {"vendor": "Uber", "amount": 68.20, "currency": "USD", "category": "travel", "date": "2026-10-06"}
+  },
+  {
+    "id": "rcpt-05",
+    "employee": "marco@acme.dev",
+    "text": "TRATTORIA DA ENZO\nVia dei Vascellari 29, Roma\n12/10/2026  Tavolo 4  Coperti 3\nTotale EUR 96,50\nPagato con carta",
+    "mock_extraction": {"vendor": "Trattoria da Enzo", "amount": 96.50, "currency": "EUR", "category": "meals", "date": "2026-10-12"}
+  },
+  {
+    "id": "rcpt-06",
+    "employee": "marco@acme.dev",
+    "text": "Trenitalia - Frecciarossa 9531\nRoma Termini -> Milano Centrale  13/10/2026\nBusiness  1 adulto\nImporto EUR 89,90",
+    "mock_extraction": {"vendor": "Trenitalia", "amount": 89.90, "currency": "EUR", "category": "travel", "date": "2026-10-13"}
+  },
+  {
+    "id": "rcpt-07",
+    "employee": "marco@acme.dev",
+    "text": "Apple Store Via del Corso\n13/10/2026\nUSB-C Digital AV Multiport Adapter  79,00\nMagic Keyboard  119,00\nTOTALE EUR 198,00 (IVA inclusa)",
+    "mock_extraction": {"vendor": "Apple Store", "amount": 198.00, "currency": "EUR", "category": "equipment", "date": "2026-10-13"}
+  },
+  {
+    "id": "rcpt-08",
+    "employee": "marco@acme.dev",
+    "text": "NH COLLECTION MILANO PRESIDENT\nArrivo 13/10/2026  Partenza 16/10/2026\n3 notti  Camera Superior\nTotale soggiorno EUR 642,00",
+    "mock_extraction": {"vendor": "NH Collection Milano President", "amount": 642.00, "currency": "EUR", "category": "lodging", "date": "2026-10-16"}
+  },
+  {
+    "id": "rcpt-09",
+    "employee": "aiko@acme.dev",
+    "text": "PRET A MANGER  Kings Cross\n17/10/2026 12:58\nChicken Caesar baguette  6.45\nFlat white  3.60\nTOTAL GBP 10.05",
+    "mock_extraction": {"vendor": "Pret A Manger", "amount": 10.05, "currency": "GBP", "category": "meals", "date": "2026-10-17"}
+  },
+  {
+    "id": "rcpt-10",
+    "employee": "aiko@acme.dev",
+    "text": "Eventbrite order #8812-4431\nLondon AI Engineering Summit 2026  18 Oct 2026\n1x Full conference pass  GBP 449.00\nBooking fee GBP 21.50\nOrder total GBP 470.50",
+    "mock_extraction": {"vendor": "Eventbrite", "amount": 470.50, "currency": "GBP", "category": "conference", "date": "2026-10-18"}
+  },
+  {
+    "id": "rcpt-11",
+    "employee": "aiko@acme.dev",
+    "text": "Transport for London  Contactless journey history\n17/10/2026 - 19/10/2026  9 journeys\nTotal charged GBP 24.30",
+    "mock_extraction": {"vendor": "Transport for London", "amount": 24.30, "currency": "GBP", "category": "travel", "date": "2026-10-19"}
+  },
+  {
+    "id": "rcpt-12",
+    "employee": "aiko@acme.dev",
+    "text": "WHSmith  Heathrow T5\n19/10/2026 18:22\nPaperback - Designing Data-Intensive Applications  GBP 42.99\nTOTAL GBP 42.99",
+    "mock_extraction": {"vendor": "WHSmith", "amount": 42.99, "currency": "GBP", "category": "books", "date": "2026-10-19"}
+  }
+]

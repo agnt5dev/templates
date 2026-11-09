@@ -168,6 +168,18 @@
           "versions": ["v0.1.0", "v0.1.1", "v0.1.2", "v0.1.3"]
         }
       }
+    },
+    "expense_processor": {
+      "title": "Expense Processor",
+      "description": "Durable expense workflow you can crash on purpose: replayed LLM steps, retries, manager approval, and a durable payout timer",
+      "category": "Getting Started",
+      "capabilities": ["workflows", "functions", "hitl"],
+      "languages": {
+        "python": {
+          "latest": "v0.1.0",
+          "versions": ["v0.1.0"]
+        }
+      }
     }
   }
 }
