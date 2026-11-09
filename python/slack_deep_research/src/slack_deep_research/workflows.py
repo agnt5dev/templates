@@ -20,8 +20,10 @@ from agnt5.types import event
 
 from slack_deep_research.approval import (
     APPROVE,
+    PlanNotShownError,
     _claim_event,
     _post_report,
+    _report_failure,
     _request_plan_approval,
     parse_interaction,
     record_decision,
@@ -178,23 +180,43 @@ async def slack_deep_research(ctx: WorkflowContext, **envelope) -> dict:
     if claim.get("duplicate"):
         ctx.logger.info(f"Skipping: duplicate delivery of {message['event_id']} (run {claim['run_id']})")
         return {"status": "skipped", "reason": "duplicate delivery", "original_run": claim["run_id"]}
+    if bot_token and not claim.get("ts"):
+        # The bot can't post in this thread, so it couldn't show the plan either. Stop before planning.
+        raise PlanNotShownError(f"Couldn't post to Slack: {claim.get('reason', 'unknown error')}")
 
     # Stage 1: Plan
     ctx.logger.info("Stage 1: Creating research plan")
     research_plan = await ctx.step(_plan_research, topic)
 
     # Stage 2: Turn the claim message into the plan with buttons, then pause until someone clicks.
-    await ctx.step(
-        _request_plan_approval,
-        channel,
-        claim.get("ts", ""),
-        message["event_id"],
-        topic,
-        research_plan,
-        bot_token,
-        ctx.run_id,
-        os.getenv("AGNT5_DEPLOYMENT_ID", ""),
-    )
+    # If the plan can't be shown, fail the run: pausing would wait for a click that can't happen.
+    try:
+        await ctx.step(
+            _request_plan_approval,
+            channel,
+            claim.get("ts", ""),
+            message["event_id"],
+            topic,
+            research_plan,
+            bot_token,
+            ctx.run_id,
+            os.getenv("AGNT5_DEPLOYMENT_ID", ""),
+        )
+    except Exception as exc:
+        ctx.logger.error(f"Couldn't show the plan for approval: {exc}")
+        try:
+            await ctx.step(
+                _report_failure,
+                channel,
+                thread_ts,
+                "Sorry, I couldn't post the research plan for approval, so I've stopped. "
+                "Mention me again to retry.",
+                bot_token,
+                ctx.run_id,
+            )
+        except Exception as notice_exc:
+            ctx.logger.warning(f"Couldn't post the failure notice: {notice_exc}")
+        raise
     decision = await ctx.wait_for_user(
         question=f"Approve this research plan?\n\n{research_plan}",
         input_type="approval",

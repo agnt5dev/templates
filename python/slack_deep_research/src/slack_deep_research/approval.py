@@ -30,6 +30,10 @@ GATEWAY_URL = os.getenv("AGNT5_GATEWAY_URL", "https://gw.agnt5.com")
 APPROVE, REJECT = "approve", "reject"
 
 
+class PlanNotShownError(RuntimeError):
+    """The plan never reached Slack, so nobody can click Approve or Reject."""
+
+
 def to_slack_mrkdwn(text: str) -> str:
     """Agents write Markdown; Slack bolds with *single* asterisks and has no headings."""
     text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
@@ -159,9 +163,17 @@ async def _request_plan_approval(
     run_id: str,
     deployment_id: str,
 ) -> dict[str, Any]:
-    """Turn the claim message into the plan with Approve / Reject buttons. Editing is safe to repeat."""
-    if not (bot_token and channel and claim_ts):
-        return {"updated": False, "reason": "no token or channel"}
+    """
+    Turn the claim message into the plan with Approve / Reject buttons. Editing is safe to repeat.
+
+    Raises PlanNotShownError if Slack doesn't show the plan, so the run fails instead of
+    pausing with no buttons. Without a bot token (running without Slack),
+    there is nothing to edit: the run pauses and is approved through the resume API.
+    """
+    if not bot_token:
+        return {"updated": False, "reason": "no Slack token: approve through the resume API"}
+    if not (channel and claim_ts):
+        raise PlanNotShownError("there is no Slack message to show the plan in")
     async with httpx.AsyncClient(timeout=15) as client:
         result = await update_message(
             client,
@@ -173,6 +185,29 @@ async def _request_plan_approval(
             blocks=plan_blocks(topic, plan, run_id, deployment_id, event_id or run_id),
         )
     ctx.logger.info(f"Plan approval request: {result}")
+    if not result.get("updated"):
+        raise PlanNotShownError(f"Slack rejected the plan update: {result.get('reason', 'unknown error')}")
+    return result
+
+
+@function(name="report_failure")
+async def _report_failure(
+    ctx: FunctionContext, channel: str, thread_ts: str, text: str, bot_token: str, run_id: str
+) -> dict[str, Any]:
+    """Tell the thread that this run stopped, once. Best effort: the run fails either way."""
+    if not (bot_token and channel and thread_ts):
+        return {"posted": False, "reason": "no token or channel"}
+    async with httpx.AsyncClient(timeout=15) as client:
+        result = await post_once(
+            client,
+            bot_token,
+            channel,
+            thread_ts,
+            text=text,
+            payload={"kind": "error", "run_id": run_id},
+            match={"kind": "error", "run_id": run_id},
+        )
+    ctx.logger.info(f"Failure notice: {result}")
     return result
 
 
