@@ -3,7 +3,7 @@ module hitl-deep-research
 go 1.26.5
 
 require (
-	github.com/agnt5dev/sdk-go v0.10.7
+	github.com/agnt5dev/sdk-go v0.11.0
 	golang.org/x/net v0.57.0
 )
 

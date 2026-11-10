@@ -2,7 +2,7 @@ module quickstart
 
 go 1.26.5
 
-require github.com/agnt5dev/sdk-go v0.10.7
+require github.com/agnt5dev/sdk-go v0.11.0
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect

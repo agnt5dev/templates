@@ -1,12 +1,12 @@
 [project]
 name = "agnt5-mcp-server"
-version = "0.1.2"
+version = "0.1.3"
 description = "AGNT5 MCP server starter: a function, a workflow and an agent published as MCP tools"
 authors = [
     { name = "AGNT5 Devs", email = "devs@agnt5.com" }
 ]
 dependencies = [
-    "agnt5~=0.14.5",
+    "agnt5~=0.15.1",
 ]
 readme = "README.md"
 requires-python = ">=3.11"
