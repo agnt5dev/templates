@@ -52,24 +52,25 @@ src/tutor_agent/        # implementation package (mirrors Python's src/<package>
    agnt5 dev
    ```
 
-## Deploy
+## Run your workers
 
-The template's `.gitignore` lists `.env`, so `agnt5 deploy` leaves that file out of the upload. A deployed project reads the key from a project secret instead.
+`agnt5 dev` runs a worker on your machine while you build. To keep the tutor running, run its worker on a host you choose, such as Railway or a server of your own. The worker connects out to AGNT5, so the host needs no public URL or open port.
 
-A project made with `agnt5 create` is already linked to AGNT5. If you cloned this repository instead, run `agnt5 init` in it first. It links the directory to a new or existing project, which `agnt5 secrets set` and `agnt5 deploy` both need.
+A project made with `agnt5 create` is already linked to AGNT5. If you cloned this repository instead, run `agnt5 init` in it first to link it to a new or existing project.
 
-1. Add `OPENAI_API_KEY` as a secret, in Studio under **Settings → Secrets**, or from the project directory:
-   ```bash
-   agnt5 secrets set --name OPENAI_API_KEY --type api_key
-   ```
-   The CLI prompts for the value without echoing it. To pipe the value in instead, add `--stdin`.
+1. In Studio, open the project's **Settings → Environments**. Open an environment's **⋯** menu, choose **Run your own workers**, select **Connect**, then **Create key** and copy the key.
+2. On your host, set:
+   - `AGNT5_ENVIRONMENT` to the environment's name.
+   - `AGNT5_API_KEY_FILE` to the path of a file that holds only the key. Keep the key in your host's secret settings, not in the code.
+   - `OPENAI_API_KEY`, in the host's secret settings too. The template's `.gitignore` lists `.env`, so the key in that file stays on your machine.
+3. Install the dependencies with `go mod download`, start the worker with `go run .`, and keep it running. It shows on the project's **Workers** page once it connects.
 
-2. Deploy:
-   ```bash
-   agnt5 deploy
-   ```
-   This creates a preview deployment, which stops after an hour. Add `--env production` to deploy to production.
+[Run workers on your own host](https://agnt5.com/docs/run/self-hosted-workers) covers each setting, and [Run workers on Railway](https://agnt5.com/docs/integrations/railway-workers) walks through one host.
 
-A deployment reads its secrets when it starts. After you add or change the key, deploy again to each environment that uses it: `agnt5 deploy` for preview, `agnt5 deploy --env production` for production.
+Then ask it a question in that environment:
+
+```bash
+agnt5 run agent triage_tutor --env <environment> --input '{"message":"What is 2+2?"}'
+```
 
 Without the key, runs fail with OpenAI's 401 error, `You didn't provide an API key`.

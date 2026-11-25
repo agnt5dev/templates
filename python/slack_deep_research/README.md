@@ -60,17 +60,17 @@ The run continues and returns the full `report`. Nothing is posted to Slack loca
 
 ## Connect to Slack
 
-1. Add the keys as project secrets and deploy:
-   ```bash
-   agnt5 secrets set --name OPENAI_API_KEY --type api_key
-   agnt5 secrets set --name APPROVAL_SERVICE_KEY --type api_key
-   agnt5 deploy --env production
-   ```
+1. Run the worker on a host you choose, such as Railway or a server of your own. The worker connects out to AGNT5, so the host needs no public URL; Slack's requests go to AGNT5.
+   1. In Studio, open the project's **Settings → Environments**. Open an environment's **⋯** menu, choose **Run your own workers**, select **Connect**, then **Create key** and copy the key.
+   2. On your host, set `AGNT5_ENVIRONMENT` to the environment's name and `AGNT5_API_KEY_FILE` to the path of a file that holds only the key. Put `OPENAI_API_KEY` and `APPROVAL_SERVICE_KEY` in the host's secret settings too.
+   3. Install the dependencies with `uv sync`, start the worker with `uv run python app.py`, and keep it running. It shows on the project's **Workers** page once it connects.
+
+   [Run workers on your own host](https://agnt5.com/docs/run/self-hosted-workers) covers each setting, and [Run workers on Railway](https://agnt5.com/docs/integrations/railway-workers) walks through one host.
 2. Follow the [Slack integration guide](https://agnt5.com/docs/integrations/event-sources/slack) and choose:
    - **Bot token scopes:** `app_mentions:read`, `chat:write`, `channels:history` (and `groups:history` for private channels)
    - **Bot events:** `app_mention`
    - **Interactivity:** on, with the same Request URL as Event Subscriptions
-   - **Target in Studio:** your production deployment and the `slack_deep_research` workflow
+   - **Target in Studio:** the environment your worker runs in, and the `slack_deep_research` workflow
 3. Mention the bot in a channel it's in, and approve the plan it posts.
 
 ## Tests

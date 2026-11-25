@@ -4,8 +4,9 @@
  * Each step runs through `ctx.step`, which checkpoints its result. If the
  * worker crashes after some stories have been summarized, the runtime replays
  * the finished steps from their checkpoints and runs only the missing ones —
- * model calls included. A function called directly, without `ctx.step`, would
- * run again on every replay.
+ * model calls included. A function called directly is checkpointed too, under a
+ * name the SDK picks from call order; `ctx.step` is used here so every step has
+ * a name of its own and, in the fan-outs, a key.
  *
  *     digest (workflow)
  *     ├─ fetch_top_ids

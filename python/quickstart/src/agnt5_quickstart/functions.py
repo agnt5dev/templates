@@ -1,6 +1,6 @@
 """Steps for the Hacker News digest workflow.
 
-Each `@function` is a durable step. When called via `ctx.task(...)` inside a
+Each `@function` is a durable step. When called via `ctx.step(...)` inside a
 workflow, it checkpoints — a worker restart skips steps that already completed.
 """
 from __future__ import annotations
