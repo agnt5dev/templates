@@ -86,21 +86,32 @@ carries on without the client, through worker restarts.
 - **claude.ai, ChatGPT, Cursor and VS Code** render MCP Apps, so the call
   shows the built-in AGNT5 run card: live status, steps, a progress bar, the
   result and **Cancel run**. In claude.ai or ChatGPT, add the server's
-  deployed URL (see below) as a custom connector and sign in with AGNT5.
+  URL (see [Run your workers](#run-your-workers)) as a custom connector and sign in with AGNT5.
 
-## Deploy it
+## Run your workers
+
+To serve clients beyond your own machine, run the worker on a host you choose, such as Railway or a server of your own. The worker connects out to AGNT5, which serves the MCP server's URL, so the host needs no public URL or open port.
+
+1. In Studio, open the project's **Settings → Environments**. Open an environment's **⋯** menu, choose **Run your own workers**, select **Connect**, then **Create key** and copy the key.
+2. On your host, set:
+   - `AGNT5_ENVIRONMENT` to the environment's name.
+   - `AGNT5_API_KEY_FILE` to the path of a file that holds only the key. Keep the key in your host's secret settings, not in the code.
+   - `OPENAI_API_KEY` for the agent, in the host's secret settings too.
+3. Install the dependencies with `uv sync`, start the worker with `uv run python app.py`, and keep it running. It shows on the project's **Workers** page once it connects.
+
+[Run workers on your own host](https://agnt5.com/docs/run/self-hosted-workers) covers each setting, and [Run workers on Railway](https://agnt5.com/docs/integrations/railway-workers) walks through one host.
+
+Once the worker connects, connect a client to the server in that environment:
 
 ```bash
-agnt5 secrets set --name OPENAI_API_KEY --type api_key   # for the agent
-agnt5 deploy --env production
-agnt5 mcp connect support --env production --client claude-code
+agnt5 mcp list --env <environment>
+agnt5 mcp connect support --env <environment> --client claude-code
 ```
 
-`agnt5 deploy` prints the server's URL,
-`https://api.agnt5.com/mcp/<project>/<env>/support`, and warns if a server
-named in `agnt5.yaml` was not published. Studio shows it under
+`agnt5 mcp list` prints the server's URL,
+`https://api.agnt5.com/mcp/<project>/<env>/support`. Studio shows it under
 **Build → MCP Servers**, with its tools, keys and calls. If a client can't
-connect, `agnt5 mcp check support --env production` probes the server the
+connect, `agnt5 mcp check support --env <environment>` probes the server the
 way a client does and says which step fails.
 
 ## Test

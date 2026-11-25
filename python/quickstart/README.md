@@ -10,7 +10,7 @@ A fan-out workflow that summarizes the top Hacker News stories, with every step 
 
 ## Key concepts
 
-- **Durable checkpointing** — Every `ctx.task(...)` call is a checkpoint. Side effects go through `ctx.task` so the runtime can skip them on replay.
+- **Durable checkpointing** — Every `ctx.step(...)` call is a checkpoint. Side effects go through `ctx.step` so the runtime can skip them on replay.
 - **Fan-out / fan-in** — `fetch_story` and `summarize` run once per story, in parallel, before `assemble_digest` combines the results.
 
 ## Setup
